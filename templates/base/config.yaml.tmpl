@@ -1,0 +1,17 @@
+version: "1"
+base_branch: "{{base_branch}}"
+ignored_paths:
+  - node_modules/**
+  - dist/**
+  - build/**
+  - "**/*.lock"
+  - "**/*.min.js"
+  - "**/generated/**"
+high_risk_patterns:
+  - "**/api/**"
+  - "**/routes/**"
+  - "**/controllers/**"
+  - "**/migrations/**"
+  - "**/schemas/**"
+  - "**/auth/**"
+max_file_bytes: 200000

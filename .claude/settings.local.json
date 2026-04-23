@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm --version)",
+      "Bash(pnpm --version)",
+      "Bash(git --version)",
+      "Bash(rtk ls *)",
+      "Bash(rtk find *)",
+      "Bash(/bin/ls -la \"/Users/ignaciovallarino/Desktop/contextur/reference reviewer/\")",
+      "Bash(/bin/ls -la /Users/ignaciovallarino/Desktop/contextur/docs/reference/)",
+      "Bash(/bin/ls -la)",
+      "Bash(npm install *)",
+      "Bash(rtk tsc *)",
+      "Bash(rtk vitest *)",
+      "Bash(rtk npx *)",
+      "Bash(/Users/ignaciovallarino/Desktop/contextur/node_modules/.bin/vitest run *)",
+      "Bash(rtk npm *)",
+      "Bash(/bin/ls /Users/ignaciovallarino/Desktop/contextur/cli/dist/)",
+      "Bash(node /Users/ignaciovallarino/Desktop/contextur/cli/dist/index.js --help)",
+      "Bash(git -C /Users/ignaciovallarino/Desktop/contextur init -b main)",
+      "Bash(node /Users/ignaciovallarino/Desktop/contextur/cli/dist/index.js review --help)",
+      "Bash(/bin/ls -la /Users/ignaciovallarino/Desktop/contextur/.contextur/)",
+      "Bash(/bin/ls /tmp/contextur-initsmoke/)",
+      "Bash(/bin/ls -la /tmp/contextur-initsmoke/)",
+      "Bash(/bin/ls -R /tmp/contextur-initsmoke/.contextur/)",
+      "Bash(rtk read *)"
+    ]
+  }
+}

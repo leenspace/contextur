@@ -1,0 +1,17 @@
+{
+  "name": "contextur-monorepo",
+  "version": "0.0.0",
+  "private": true,
+  "workspaces": [
+    "cli"
+  ],
+  "scripts": {
+    "build": "npm run -w contextur build",
+    "test": "npm run -w contextur test",
+    "lint": "npm run -w contextur lint",
+    "typecheck": "npm run -w contextur typecheck"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

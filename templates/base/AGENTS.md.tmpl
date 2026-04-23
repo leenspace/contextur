@@ -1,0 +1,26 @@
+# AGENTS.md
+
+This repository uses [Contextur](https://github.com/your-org/contextur) for structured AI code review.
+
+## Review-time guidance for AI coding assistants
+
+When generating code in this repo, follow these standards so your changes pass review:
+
+{{inferred_standards}}
+
+## How to run a review
+
+1. Make your changes and commit them.
+2. Run `contextur review --base {{base_branch}}` to generate a structured review request.
+3. Feed the output to your AI IDE (Claude Code, Cursor, Codex, or any AI assistant).
+4. The AI follows the 3-stage pipeline: specialist reviewers → challenger → synthesizer.
+
+Reviewer prompts live in `.contextur/reviewers/`. They are plain Markdown — edit them, commit them, treat them like code.
+
+## Rules auto-inferred during `contextur init`
+
+The block below was generated automatically. Review each bullet and delete any that don't apply.
+
+<!-- contextur:inferred confidence=medium
+{{inferred_rules_raw}}
+-->

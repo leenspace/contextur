@@ -1,0 +1,23 @@
+reviewers:
+  - id: core-logic
+    path: reviewers/core-logic.md
+    trigger: "**/*"
+    mandatory: true
+  - id: security
+    path: reviewers/security.md
+    trigger:
+      - "**/*.ts"
+      - "**/*.tsx"
+      - "**/*.js"
+      - "**/*.jsx"
+      - "**/*.py"
+      - "**/*.go"
+      - "**/*.rs"
+      - "**/*.java"
+      - "**/*.rb"
+      - "**/*.php"
+    mandatory: true
+  - id: architecture
+    path: reviewers/architecture.md
+    trigger: "**/*"
+    mandatory: true

@@ -1,0 +1,25 @@
+---
+description: Use contextur for code reviews and reviewer personalization
+globs:
+alwaysApply: false
+---
+
+This repo uses [Contextur](https://github.com/your-org/contextur) for AI code review. The reviewer prompts live in `.contextur/reviewers/`.
+
+## When asked to "review this PR" / "review the code" / "run a code review"
+
+Run `contextur review --base {{base_branch}}` in the terminal, then follow the 3-stage pipeline in the output:
+
+1. **Stage 1 — Specialists**: run each triggered reviewer against the context bundle.
+2. **Stage 2 — Challenger**: validate findings (CONFIRMED / DOWNGRADED / REJECTED).
+3. **Stage 3 — Synthesizer**: produce the final developer-facing report.
+
+Present only the synthesized report to the user.
+
+## When asked to "initialize contextur" / "set up contextur for this repo" / "personalize the reviewers"
+
+Read `.claude/commands/contextur-init.md` in this repo and follow its instructions exactly. (It contains the full protocol for ingesting existing AI-friendly docs, scanning the codebase, and appending `## Repo-specific rules` sections to each reviewer.) If `.claude/commands/contextur-init.md` is missing, ask the user to re-run `contextur init` in the terminal first.
+
+## When asked to "update contextur" / "refresh the reviewers" / "sync contextur with recent changes"
+
+Read `.claude/commands/contextur-update.md` and follow its instructions. The update flow is idempotent — it looks for `<!-- contextur:repo-specific-start -->` / `<!-- contextur:repo-specific-end -->` markers and replaces only what's between them.

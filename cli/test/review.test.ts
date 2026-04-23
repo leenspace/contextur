@@ -1,0 +1,155 @@
+import { describe, expect, it } from "vitest";
+import { buildReviewRequest } from "../src/commands/review.js";
+import type { ContextBundle } from "../src/core/context-bundle.js";
+
+function makeBundle(): ContextBundle {
+  return {
+    diff: {
+      baseRef: "main",
+      headSha: "abc1234",
+      commitLog: "feat: add feature X",
+      diffStat: " src/x.ts | 3 +++",
+      changedFiles: ["src/x.ts"],
+      unifiedDiff: "+export const x = 1;",
+    },
+    large: false,
+    preloaded: [{ path: "src/x.ts", bytes: 20, content: "export const x = 1;\n", truncated: false }],
+    summarised: [],
+    totalChars: 20,
+  };
+}
+
+function makeProject(overrides?: {
+  reviewers?: { id: string; prompt: string; trigger?: string; mandatory?: boolean }[];
+  challengerPrompt?: string;
+  synthesizerPrompt?: string;
+}) {
+  const reviewers = (overrides?.reviewers ?? [
+    { id: "core-logic", prompt: "CORE LOGIC INSTRUCTIONS", trigger: "**/*", mandatory: true },
+    { id: "security", prompt: "SECURITY INSTRUCTIONS", trigger: "**/*.ts", mandatory: false },
+  ]).map((r) => ({
+    entry: {
+      id: r.id,
+      path: `reviewers/${r.id}.md`,
+      trigger: r.trigger ?? "**/*",
+      mandatory: r.mandatory ?? false,
+    },
+    prompt: r.prompt,
+  }));
+
+  return {
+    root: "/fake/root",
+    configPath: "/fake/root/.contextur/config.yaml",
+    config: { version: "1" as const, base_branch: "main", ignored_paths: [], high_risk_patterns: [], max_file_bytes: 200_000 },
+    manifest: { reviewers: reviewers.map((r) => r.entry) },
+    reviewers,
+    challengerPrompt: overrides?.challengerPrompt ?? "CHALLENGER INSTRUCTIONS",
+    synthesizerPrompt: overrides?.synthesizerPrompt ?? "SYNTHESIZER INSTRUCTIONS",
+  };
+}
+
+describe("buildReviewRequest", () => {
+  it("includes date header, base ref, changed file count, reviewer names", () => {
+    const project = makeProject();
+    const doc = buildReviewRequest({
+      project,
+      triggeredReviewers: project.reviewers,
+      reviewerNames: "core-logic, security",
+      baseRef: "main",
+      headSha: "abc1234",
+      changedFiles: ["src/x.ts"],
+      bundle: makeBundle(),
+    });
+
+    expect(doc).toMatch(/# Contextur Review Request — \d{4}-\d{2}-\d{2}/);
+    expect(doc).toContain("main..HEAD (abc1234)");
+    expect(doc).toContain("Changed files**: 1");
+    expect(doc).toContain("core-logic, security");
+  });
+
+  it("embeds all triggered reviewer prompts in Stage 1", () => {
+    const project = makeProject();
+    const doc = buildReviewRequest({
+      project,
+      triggeredReviewers: project.reviewers,
+      reviewerNames: "core-logic, security",
+      baseRef: "main",
+      headSha: "abc1234",
+      changedFiles: ["src/x.ts"],
+      bundle: makeBundle(),
+    });
+
+    expect(doc).toContain("## Stage 1 — Specialist reviewers");
+    expect(doc).toContain("### core-logic");
+    expect(doc).toContain("CORE LOGIC INSTRUCTIONS");
+    expect(doc).toContain("### security");
+    expect(doc).toContain("SECURITY INSTRUCTIONS");
+  });
+
+  it("embeds challenger and synthesizer prompts in Stage 2 and 3", () => {
+    const project = makeProject();
+    const doc = buildReviewRequest({
+      project,
+      triggeredReviewers: project.reviewers,
+      reviewerNames: "core-logic, security",
+      baseRef: "main",
+      headSha: "abc1234",
+      changedFiles: ["src/x.ts"],
+      bundle: makeBundle(),
+    });
+
+    expect(doc).toContain("## Stage 2 — Challenger");
+    expect(doc).toContain("CHALLENGER INSTRUCTIONS");
+    expect(doc).toContain("## Stage 3 — Synthesizer");
+    expect(doc).toContain("SYNTHESIZER INSTRUCTIONS");
+  });
+
+  it("includes safety-tagged context bundle", () => {
+    const project = makeProject();
+    const doc = buildReviewRequest({
+      project,
+      triggeredReviewers: project.reviewers,
+      reviewerNames: "core-logic, security",
+      baseRef: "main",
+      headSha: "abc1234",
+      changedFiles: ["src/x.ts"],
+      bundle: makeBundle(),
+    });
+
+    expect(doc).toContain("## Context bundle");
+    expect(doc).toContain("<user_diff>");
+    expect(doc).toContain('<user_file path="src/x.ts"');
+    expect(doc).toContain("UNTRUSTED DATA");
+  });
+
+  it("includes focus instruction when provided", () => {
+    const project = makeProject();
+    const doc = buildReviewRequest({
+      project,
+      triggeredReviewers: project.reviewers,
+      reviewerNames: "core-logic",
+      baseRef: "main",
+      headSha: "abc1234",
+      changedFiles: ["src/x.ts"],
+      bundle: makeBundle(),
+      focus: "check for SQL injection",
+    });
+
+    expect(doc).toContain("Focus**: check for SQL injection");
+  });
+
+  it("shows fallback message when no project is loaded", () => {
+    const doc = buildReviewRequest({
+      project: null,
+      triggeredReviewers: null,
+      reviewerNames: "core-logic, security, architecture (built-in defaults)",
+      baseRef: "main",
+      headSha: "abc1234",
+      changedFiles: ["src/x.ts"],
+      bundle: makeBundle(),
+    });
+
+    expect(doc).toContain("contextur init");
+    expect(doc).toContain("built-in defaults");
+  });
+});
