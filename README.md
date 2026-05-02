@@ -82,9 +82,9 @@ AGENTS.md                  # repo-level assistant context (always generated)
 
 Optional integration files:
 
-- Claude Code: `.claude/commands/review.md`, `.claude/commands/contextur-init.md`, `.claude/commands/contextur-update.md`
+- Claude Code: `.claude/commands/contextur-review.md`, `.claude/commands/contextur-init.md`, `.claude/commands/contextur-update.md`
 - Cursor: `.cursor/rules/contextur.mdc`
-- Shared skills (Claude/Cursor/Codex-compatible): `.agents/skills/contextur-init/SKILL.md`, `.agents/skills/contextur-update/SKILL.md`, `.agents/skills/review/SKILL.md`
+- Shared skills (Claude/Cursor/Codex-compatible): `.agents/skills/contextur-init/SKILL.md`, `.agents/skills/contextur-update/SKILL.md`, `.agents/skills/contextur-review/SKILL.md`
 - Codex/OpenAI agents: `AGENTS.md` + optional `.agents/skills/*` (recommended for explicit command-like workflows)
 
 All generated Markdown files are meant to be edited.
@@ -94,17 +94,18 @@ All generated Markdown files are meant to be edited.
 Contextur uses a dual-layer approach:
 
 - Tool-specific wrappers:
-  - Claude Code project commands (`/project:contextur-init`, `/project:contextur-update`, `/project:review`)
+  - Claude Code project commands (`/project:contextur-init`, `/project:contextur-update`, `/project:contextur-review`)
   - Cursor project rules (`.cursor/rules/contextur.mdc`) that instruct agent behavior
 - Shared skills:
-  - `contextur-init`, `contextur-update`, `review` in `.agents/skills/`
+  - `contextur-init`, `contextur-update`, `contextur-review` in `.agents/skills/`
   - Designed to work across Claude, Cursor, and Codex-style agentic tools
 
 Invocation UX differs slightly by tool:
 
 - Claude/Cursor typically expose skills in slash menus.
-- Codex supports explicit skill invocation via `$skill-name` (for example `$review`) and also uses `AGENTS.md` for persistent repo guidance.
-- The generated `/review` skill asks for optional reviewers, files or path areas, and review focus through the agent UI, then passes those choices to `contextur review --no-interactive`.
+- Codex supports explicit skill invocation via `$skill-name` (for example `$contextur-review`) and also uses `AGENTS.md` for persistent repo guidance.
+- Codex has a built-in `/review` command, so use Contextur via `$contextur-review` to run the Contextur pipeline.
+- The generated `/contextur-review` skill asks for optional reviewers, files or path areas, and review focus through the agent UI, then passes those choices to `contextur review --no-interactive`.
 
 ## Review pipeline
 
@@ -144,12 +145,14 @@ Legacy setups using `core-logic` remain supported for backward compatibility.
 ```bash
 contextur init [--force] [--yes]
 contextur review [--base <ref>] [--focus <text>] [--paths <filters>] [--reviewers <ids>] [--no-interactive] [--dry-run]
+contextur review-intake [--base <ref>] [--focus <text>] [--paths <filters>] [--reviewers <ids>]
 ```
 
 Notes:
 
 - In a TTY, `contextur review` starts an interactive intake by default (reviewers, file selection, and focus).
-- In agent-driven `/review` workflows, the generated skill asks those same intake questions in the agent UI and forwards the selected values with `--reviewers`, `--paths`, and `--focus`.
+- In agent-driven `/contextur-review` workflows, the generated skill asks those same intake questions in the agent UI and forwards the selected values with `--reviewers`, `--paths`, and `--focus`.
+- `contextur review-intake` is an intake helper: it collects reviewer/path/focus choices and prints the equivalent `contextur review --no-interactive ...` command plus a machine-readable config block.
 - Use `--no-interactive` for CI/scripts or deterministic non-interactive runs.
 - `--paths` scopes files by comma-separated filters (supports globs like `src/**` and simple prefixes like `src`).
 - `--reviewers` sets reviewer ids explicitly (comma-separated). Mandatory reviewers are always included.
@@ -164,6 +167,9 @@ contextur review
 
 # Non-interactive run for CI
 contextur review --no-interactive --base main --paths "src/**,docs/**"
+
+# Intake helper for agent workflows (prints runnable command)
+contextur review-intake --base main
 
 # Explicit reviewers + focused scope
 contextur review --reviewers "correctness,security,performance" --paths "src/api/**" --focus "auth and permission regressions"

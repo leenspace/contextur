@@ -67,8 +67,8 @@ export const SHARED_SKILL_DEFINITIONS = [
     templatePath: "base/integrations/skill-contextur-update.md",
   },
   {
-    id: "review",
-    outputPath: ".agents/skills/review/SKILL.md",
+    id: "contextur-review",
+    outputPath: ".agents/skills/contextur-review/SKILL.md",
     templatePath: "base/integrations/skill-review.md",
   },
 ] as const;
@@ -144,7 +144,7 @@ export function registerInitCommand(program: Command): void {
             message: "Which AI tools do you use in this repo? (select all that apply)",
             choices: [
               {
-                name: "Claude Code (.claude/commands/review.md)",
+                name: "Claude Code (.claude/commands/contextur-review.md)",
                 value: "claude-code",
                 checked: true,
               },
@@ -158,7 +158,7 @@ export function registerInitCommand(program: Command): void {
                 checked: true,
               },
               {
-                name: "Shared Skills (.agents/skills/{contextur-init,contextur-update,review})",
+                name: "Shared Skills (.agents/skills/{contextur-init,contextur-update,contextur-review})",
                 value: "shared-skills",
                 checked: true,
               },
@@ -180,13 +180,13 @@ export function registerInitCommand(program: Command): void {
         await writeRendered(dotDir, `reviewers/${name}.md`, `base/reviewers/${name}.md`, values);
       }
 
-      // Claude Code: .claude/commands/{review,contextur-init,contextur-update}.md
+      // Claude Code: .claude/commands/{contextur-review,contextur-init,contextur-update}.md
       if (aiTools.includes("claude-code")) {
         const clauDir = join(cwd, ".claude", "commands");
         await mkdir(clauDir, { recursive: true });
 
         const reviewTpl = await readTemplate("base/integrations/claude-command.md");
-        await writeFile(join(clauDir, "review.md"), render(reviewTpl, values));
+        await writeFile(join(clauDir, "contextur-review.md"), render(reviewTpl, values));
 
         const initTpl = await readTemplate("base/integrations/claude-init-command.md");
         await writeFile(join(clauDir, "contextur-init.md"), render(initTpl, values));
@@ -247,7 +247,7 @@ export function registerInitCommand(program: Command): void {
           "  Claude Code:",
           "    /project:contextur-init            ← run this NEXT to personalize reviewers",
           "    /project:contextur-update          ← run after major repo changes",
-          "    /project:review [base-branch]      ← run a code review",
+          "    /project:contextur-review [base-branch] ← run a code review",
         );
       }
       if (aiTools.includes("cursor")) {
@@ -259,14 +259,16 @@ export function registerInitCommand(program: Command): void {
         );
       }
       if (aiTools.includes("codex")) {
-        integrationLines.push("  Codex: reads AGENTS.md and can invoke shared skills (e.g. $review)");
+        integrationLines.push(
+          "  Codex: reads AGENTS.md and can invoke shared skills (e.g. $contextur-review; intake helper: contextur review-intake)",
+        );
       }
       if (aiTools.includes("shared-skills")) {
         integrationLines.push(
           "  Shared Skills:",
           "    $contextur-init                  ← personalize reviewers for this repo",
           "    $contextur-update                ← refresh reviewers after major changes",
-          "    $review                          ← run contextur review workflow",
+          "    $contextur-review                ← run contextur review workflow",
         );
       }
 

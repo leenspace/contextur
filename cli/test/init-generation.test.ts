@@ -70,11 +70,11 @@ describe("init generation helpers", () => {
 
   it("defines shared skill scaffolds for cross-tool command parity", () => {
     const ids = SHARED_SKILL_DEFINITIONS.map((s) => s.id);
-    expect(ids).toEqual(["contextur-init", "contextur-update", "review"]);
+    expect(ids).toEqual(["contextur-init", "contextur-update", "contextur-review"]);
     expect(SHARED_SKILL_DEFINITIONS.map((s) => s.outputPath)).toEqual([
       ".agents/skills/contextur-init/SKILL.md",
       ".agents/skills/contextur-update/SKILL.md",
-      ".agents/skills/review/SKILL.md",
+      ".agents/skills/contextur-review/SKILL.md",
     ]);
     expect(SHARED_SKILL_DEFINITIONS.every((s) => s.templatePath.startsWith("base/integrations/"))).toBe(
       true,
@@ -126,5 +126,22 @@ describe("init generation helpers", () => {
     expect(cursorRule).toContain("Prefer `.agents/skills/contextur-init/SKILL.md`");
     expect(cursorRule).toContain("If the shared skill is missing");
     expect(cursorRule).toContain("`.claude/commands/contextur-init.md`");
+  });
+
+  it("names the shared review workflow as contextur-review", async () => {
+    const reviewSkill = await readIntegrationTemplate("skill-review.md");
+    expect(reviewSkill).toContain("name: contextur-review");
+  });
+
+  it("documents AskUserQuestion for Claude review intake", async () => {
+    const claudeReview = await readIntegrationTemplate("claude-command.md");
+    expect(claudeReview).toContain("allowed-tools: AskUserQuestion Bash Read");
+    expect(claudeReview).toContain("Use `AskUserQuestion` to gather");
+  });
+
+  it("documents Codex intake helper in shared review skill", async () => {
+    const reviewSkill = await readIntegrationTemplate("skill-review.md");
+    expect(reviewSkill).toContain("contextur review-intake --base <base>");
+    expect(reviewSkill).toContain("Codex note:");
   });
 });

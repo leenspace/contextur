@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildNonInteractiveReviewCommand,
   buildReviewRequest,
   matchesPathFilter,
   parseCsv,
@@ -193,6 +194,31 @@ describe("buildReviewRequest", () => {
 });
 
 describe("review option helpers", () => {
+  it("builds a shell-quoted non-interactive review command", () => {
+    const command = buildNonInteractiveReviewCommand({
+      baseRef: "develop",
+      reviewers: ["correctness", "security"],
+      pathFilters: ["src/**", "docs"],
+      focus: "auth and permission checks",
+    });
+
+    expect(command).toContain("contextur review --no-interactive");
+    expect(command).toContain("--base 'develop'");
+    expect(command).toContain("--reviewers 'correctness,security'");
+    expect(command).toContain("--paths 'src/**,docs'");
+    expect(command).toContain("--focus 'auth and permission checks'");
+  });
+
+  it("omits optional flags when using defaults", () => {
+    const command = buildNonInteractiveReviewCommand({
+      baseRef: "main",
+      reviewers: [],
+      pathFilters: [],
+    });
+
+    expect(command).toBe("contextur review --no-interactive --base 'main'");
+  });
+
   it("parses comma-separated lists and trims empty values", () => {
     expect(parseCsv(" correctness, security ,, testing ")).toEqual([
       "correctness",

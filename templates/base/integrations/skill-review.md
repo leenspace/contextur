@@ -1,5 +1,5 @@
 ---
-name: review
+name: contextur-review
 description: Run Contextur review and execute the 3-stage specialist/challenger/synthesizer workflow.
 ---
 
@@ -22,7 +22,13 @@ If there are no changed files, stop and report that there is nothing to review.
 
 ## 2. Ask the user what to review
 
-Use the structured question UI available to the agent (for example Cursor's `AskQuestion` tool) and ask these questions together when possible:
+Choose the intake method based on the current agent surface:
+
+- **Cursor**: use the `AskQuestion` tool.
+- **Claude Code**: use the `AskUserQuestion` tool.
+- **Codex**: run `contextur review-intake --base <base>` in a real terminal and use its output command/config block.
+
+For Cursor/Claude structured intake, ask these questions together when possible:
 
 1. **Reviewers** (multi-select): list optional reviewers from `.contextur/manifest.yaml`; pre-select the optional reviewers that appeared in the dry-run's "Reviewers triggered" output when the UI supports defaults, otherwise label them as auto-triggered. Do not list mandatory reviewers as selectable options, but mention that they will always run. If there is no manifest or no optional reviewer, skip this question.
 2. **Files or areas** (multi-select): ask which changed files or areas to include. If there are 30 or fewer changed files, use one option per file path and select all by default when supported. If there are more than 30, group files by the nearest useful repo-relative prefix (for example `packages/<name>`, `apps/<name>`, `src/<area>`, `.github`, or top-level directory) and select all groups by default when supported.
@@ -52,6 +58,8 @@ Rules:
 - If every file or area was selected, omit `--paths`; otherwise pass a comma-separated list of selected file paths or prefixes.
 - Quote shell arguments safely.
 - If the user skipped all optional reviewers, still run the mandatory reviewers.
+
+Codex note: Codex has a built-in `/review` command, so use this Contextur skill (`/contextur-review` or `$contextur-review`) and `contextur review-intake` for intake instead of Codex built-in review.
 
 Then follow the 3-stage pipeline described in the generated output:
 
