@@ -104,6 +104,7 @@ Invocation UX differs slightly by tool:
 
 - Claude/Cursor typically expose skills in slash menus.
 - Codex supports explicit skill invocation via `$skill-name` (for example `$review`) and also uses `AGENTS.md` for persistent repo guidance.
+- The generated `/review` skill asks for optional reviewers, files or path areas, and review focus through the agent UI, then passes those choices to `contextur review --no-interactive`.
 
 ## Review pipeline
 
@@ -148,6 +149,7 @@ contextur review [--base <ref>] [--focus <text>] [--paths <filters>] [--reviewer
 Notes:
 
 - In a TTY, `contextur review` starts an interactive intake by default (reviewers, file selection, and focus).
+- In agent-driven `/review` workflows, the generated skill asks those same intake questions in the agent UI and forwards the selected values with `--reviewers`, `--paths`, and `--focus`.
 - Use `--no-interactive` for CI/scripts or deterministic non-interactive runs.
 - `--paths` scopes files by comma-separated filters (supports globs like `src/**` and simple prefixes like `src`).
 - `--reviewers` sets reviewer ids explicitly (comma-separated). Mandatory reviewers are always included.

@@ -69,8 +69,9 @@ describe("buildReviewRequest", () => {
     });
 
     expect(doc).toMatch(/# Contextur Review Request — \d{4}-\d{2}-\d{2}/);
+    expect(doc).toContain("## Review configuration");
     expect(doc).toContain("main..HEAD (abc1234)");
-    expect(doc).toContain("Selected files**: 1 / 1");
+    expect(doc).toContain("📄 **Selected files**: 1 / 1");
     expect(doc).toContain("correctness, security");
   });
 
@@ -187,7 +188,7 @@ describe("buildReviewRequest", () => {
     expect(doc).toContain("Selected files**: 1 / 3");
     expect(doc).toContain("Path filters**: src/**");
     expect(doc).toContain("### Selected files");
-    expect(doc).toContain("- `src/x.ts`");
+    expect(doc).toContain("- [`src/x.ts`](<src/x.ts>)");
   });
 });
 

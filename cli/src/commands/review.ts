@@ -188,21 +188,23 @@ export function buildReviewRequest(opts: ReviewRequestOpts): string {
 
   parts.push(`# Contextur Review Request — ${date}`);
   parts.push("");
-  parts.push(`**Base**: ${opts.baseRef}..HEAD (${opts.headSha})`);
-  parts.push(`**Selected files**: ${opts.changedFiles.length} / ${opts.totalChangedFiles}`);
-  parts.push(`**Selected reviewers**: ${opts.reviewerNames}`);
+  parts.push("## Review configuration");
+  parts.push("");
+  parts.push(`- 🧭 **Base**: ${opts.baseRef}..HEAD (${opts.headSha})`);
+  parts.push(`- 📄 **Selected files**: ${opts.changedFiles.length} / ${opts.totalChangedFiles}`);
+  parts.push(`- 🧑‍⚖️ **Selected reviewers**: ${opts.reviewerNames}`);
   if (opts.pathFilters.length > 0) {
-    parts.push(`**Path filters**: ${opts.pathFilters.join(", ")}`);
+    parts.push(`- 🔎 **Path filters**: ${opts.pathFilters.join(", ")}`);
   }
   if (opts.focus) {
-    parts.push(`**Focus**: ${opts.focus}`);
+    parts.push(`- 🎯 **Focus**: ${opts.focus}`);
   }
   parts.push("");
   if (opts.changedFiles.length < opts.totalChangedFiles && opts.changedFiles.length <= 30) {
     parts.push("### Selected files");
     parts.push("");
     for (const file of opts.changedFiles) {
-      parts.push(`- \`${file}\``);
+      parts.push(`- ${markdownFileLink(file)}`);
     }
     parts.push("");
   }
@@ -304,6 +306,12 @@ export function matchesPathFilter(file: string, filter: string): boolean {
 
 function hasGlobMagic(value: string): boolean {
   return /[*?[\]{}()!+@]/.test(value);
+}
+
+function markdownFileLink(path: string): string {
+  const label = path.replace(/`/g, "\\`");
+  const target = encodeURI(path).replace(/>/g, "%3E");
+  return `[\`${label}\`](<${target}>)`;
 }
 
 interface ResolveReviewersOpts {
