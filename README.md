@@ -57,7 +57,7 @@ The review request includes a 3-stage flow for your AI to run:
 
 Contextur has two core commands:
 
-- `contextur init` scaffolds editable prompts and config in `.contextur/`, writes `AGENTS.md`, and can add optional IDE integration files for Claude Code and Cursor.
+- `contextur init` scaffolds editable prompts and config in `.contextur/`, writes `AGENTS.md`, and can add optional IDE integration files for Claude Code, Cursor, and shared cross-tool skills.
 - `contextur review` builds a context bundle from `git diff <base>...HEAD`, selects reviewers, applies safety wrapping, and emits a single Markdown review request.
 
 The generated review document is intentionally tool-agnostic. Claude Code, Cursor, and Codex receive the same core request format; integration files are convenience glue for each IDE.
@@ -84,9 +84,26 @@ Optional integration files:
 
 - Claude Code: `.claude/commands/review.md`, `.claude/commands/contextur-init.md`, `.claude/commands/contextur-update.md`
 - Cursor: `.cursor/rules/contextur.mdc`
-- Codex/OpenAI agents: no extra file required beyond `AGENTS.md`
+- Shared skills (Claude/Cursor/Codex-compatible): `.agents/skills/contextur-init/SKILL.md`, `.agents/skills/contextur-update/SKILL.md`, `.agents/skills/review/SKILL.md`
+- Codex/OpenAI agents: `AGENTS.md` + optional `.agents/skills/*` (recommended for explicit command-like workflows)
 
 All generated Markdown files are meant to be edited.
+
+### Command availability by tool
+
+Contextur uses a dual-layer approach:
+
+- Tool-specific wrappers:
+  - Claude Code project commands (`/project:contextur-init`, `/project:contextur-update`, `/project:review`)
+  - Cursor project rules (`.cursor/rules/contextur.mdc`) that instruct agent behavior
+- Shared skills:
+  - `contextur-init`, `contextur-update`, `review` in `.agents/skills/`
+  - Designed to work across Claude, Cursor, and Codex-style agentic tools
+
+Invocation UX differs slightly by tool:
+
+- Claude/Cursor typically expose skills in slash menus.
+- Codex supports explicit skill invocation via `$skill-name` (for example `$review`) and also uses `AGENTS.md` for persistent repo guidance.
 
 ## Review pipeline
 

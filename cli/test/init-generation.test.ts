@@ -3,6 +3,7 @@ import {
   buildManifestFromSignals,
   buildRepoSnapshot,
   buildReviewerTemplateValues,
+  SHARED_SKILL_DEFINITIONS,
 } from "../src/commands/init.js";
 import type { RepoSignals } from "../src/core/repo-scan.js";
 
@@ -60,5 +61,27 @@ describe("init generation helpers", () => {
     expect(api?.mandatory).toBe(false);
     expect(migration?.mandatory).toBe(true);
     expect(performance?.trigger).toEqual(["**/*.py"]);
+  });
+
+  it("defines shared skill scaffolds for cross-tool command parity", () => {
+    const ids = SHARED_SKILL_DEFINITIONS.map((s) => s.id);
+    expect(ids).toEqual(["contextur-init", "contextur-update", "review"]);
+    expect(SHARED_SKILL_DEFINITIONS.map((s) => s.outputPath)).toEqual([
+      ".agents/skills/contextur-init/SKILL.md",
+      ".agents/skills/contextur-update/SKILL.md",
+      ".agents/skills/review/SKILL.md",
+    ]);
+    expect(SHARED_SKILL_DEFINITIONS.every((s) => s.templatePath.startsWith("base/integrations/"))).toBe(
+      true,
+    );
+  });
+
+  it("keeps mandatory baseline reviewers enabled for backward compatibility", () => {
+    const manifest = buildManifestFromSignals(makeSignals());
+    expect(manifest.reviewers.find((r) => r.id === "correctness")?.mandatory).toBe(true);
+    expect(manifest.reviewers.find((r) => r.id === "security")?.mandatory).toBe(true);
+    expect(manifest.reviewers.find((r) => r.id === "architecture")?.mandatory).toBe(true);
+    expect(manifest.reviewers.find((r) => r.id === "testing")?.mandatory).toBe(true);
+    expect(manifest.reviewers.find((r) => r.id === "operability")?.mandatory).toBe(true);
   });
 });

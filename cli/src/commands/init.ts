@@ -1,7 +1,7 @@
 import type { Command } from "commander";
 import { mkdir, writeFile, readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { input, confirm, checkbox } from "@inquirer/prompts";
 import { stringify as stringifyYaml } from "yaml";
 import { scanRepo, type RepoSignals } from "../core/repo-scan.js";
@@ -14,6 +14,7 @@ interface InitOptions {
 }
 
 type AiTool = "claude-code" | "cursor" | "codex";
+type AiToolWithSkills = AiTool | "shared-skills";
 
 const REVIEWER_IDS = [
   "correctness",
@@ -53,6 +54,24 @@ const DEFAULT_CODE_GLOBS = [
   "**/*.scala",
   "**/*.dart",
 ];
+
+export const SHARED_SKILL_DEFINITIONS = [
+  {
+    id: "contextur-init",
+    outputPath: ".agents/skills/contextur-init/SKILL.md",
+    templatePath: "base/integrations/skill-contextur-init.md",
+  },
+  {
+    id: "contextur-update",
+    outputPath: ".agents/skills/contextur-update/SKILL.md",
+    templatePath: "base/integrations/skill-contextur-update.md",
+  },
+  {
+    id: "review",
+    outputPath: ".agents/skills/review/SKILL.md",
+    templatePath: "base/integrations/skill-review.md",
+  },
+] as const;
 
 interface RepoSnapshot {
   version: "1";
@@ -119,9 +138,9 @@ export function registerInitCommand(program: Command): void {
             default: signals.baseBranchGuess,
           });
 
-      const aiTools: AiTool[] = opts.yes
-        ? ["claude-code"]
-        : await checkbox<AiTool>({
+      const aiTools: AiToolWithSkills[] = opts.yes
+        ? ["claude-code", "shared-skills"]
+        : await checkbox<AiToolWithSkills>({
             message: "Which AI tools do you use in this repo? (select all that apply)",
             choices: [
               {
@@ -136,6 +155,11 @@ export function registerInitCommand(program: Command): void {
               {
                 name: "Codex / OpenAI agents (AGENTS.md only — no extra file needed)",
                 value: "codex",
+                checked: true,
+              },
+              {
+                name: "Shared Skills (.agents/skills/{contextur-init,contextur-update,review})",
+                value: "shared-skills",
                 checked: true,
               },
             ],
@@ -177,6 +201,16 @@ export function registerInitCommand(program: Command): void {
         await mkdir(cursorDir, { recursive: true });
         const tpl = await readTemplate("base/integrations/cursor-rule.mdc");
         await writeFile(join(cursorDir, "contextur.mdc"), render(tpl, values));
+      }
+
+      // Shared cross-tool skills: .agents/skills/*/SKILL.md
+      if (aiTools.includes("shared-skills")) {
+        for (const skill of SHARED_SKILL_DEFINITIONS) {
+          const skillPath = join(cwd, skill.outputPath);
+          await mkdir(dirname(skillPath), { recursive: true });
+          const tpl = await readTemplate(skill.templatePath);
+          await writeFile(skillPath, render(tpl, values));
+        }
       }
 
       // AGENTS.md at repo root (covers Codex + general AI assistant context)
@@ -225,7 +259,15 @@ export function registerInitCommand(program: Command): void {
         );
       }
       if (aiTools.includes("codex")) {
-        integrationLines.push("  Codex: reads AGENTS.md and runs contextur review as a tool");
+        integrationLines.push("  Codex: reads AGENTS.md and can invoke shared skills (e.g. $review)");
+      }
+      if (aiTools.includes("shared-skills")) {
+        integrationLines.push(
+          "  Shared Skills:",
+          "    $contextur-init                  ← personalize reviewers for this repo",
+          "    $contextur-update                ← refresh reviewers after major changes",
+          "    $review                          ← run contextur review workflow",
+        );
       }
 
       process.stdout.write(
