@@ -67,13 +67,16 @@ The generated review document is intentionally tool-agnostic. Claude Code, Curso
 ```text
 .contextur/
 ├── config.yaml           # base branch, ignored paths, risk patterns, max_file_bytes
-├── manifest.yaml         # reviewer entries (default built-ins are mandatory: true)
+├── manifest.yaml         # reviewer entries (five mandatory baseline + optional specialists)
 ├── challenger.md         # adversarial validator prompt
 ├── synthesizer.md        # final-report synthesizer prompt
 └── reviewers/
-    ├── core-logic.md
+    ├── correctness.md
     ├── security.md
-    └── architecture.md
+    ├── architecture.md
+    ├── testing.md
+    ├── operability.md
+    └── ... (optional specialists)
 AGENTS.md                  # repo-level assistant context (always generated)
 ```
 
@@ -109,7 +112,8 @@ git diff <base>...HEAD
  └─────────────────┘
 ```
 
-Default templates mark built-in reviewers as mandatory, so all three run unless you customize `.contextur/manifest.yaml`. You can add custom reviewers by creating Markdown files in `.contextur/reviewers/` and adding matching manifest entries.
+Default templates include a stack-agnostic mandatory baseline (`correctness`, `security`, `architecture`, `testing`, `operability`) plus optional specialists (`performance`, `api-contract`, `data-migration`, `ci-release`, `maintainability`) that trigger by path patterns. You can customize `.contextur/manifest.yaml` freely and add custom reviewers by creating Markdown files in `.contextur/reviewers/` and adding matching manifest entries.
+Legacy setups using `core-logic` remain supported for backward compatibility.
 
 ## Security model
 

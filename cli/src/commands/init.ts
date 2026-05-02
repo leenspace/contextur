@@ -84,7 +84,18 @@ export function registerInitCommand(program: Command): void {
       await writeCopy(dotDir, "challenger.md", "base/challenger.md");
       await writeCopy(dotDir, "synthesizer.md", "base/synthesizer.md");
 
-      for (const name of ["core-logic", "security", "architecture"]) {
+      for (const name of [
+        "correctness",
+        "security",
+        "architecture",
+        "testing",
+        "operability",
+        "performance",
+        "api-contract",
+        "data-migration",
+        "ci-release",
+        "maintainability",
+      ]) {
         await writeCopy(dotDir, `reviewers/${name}.md`, `base/reviewers/${name}.md`);
       }
 

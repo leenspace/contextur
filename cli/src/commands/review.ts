@@ -85,7 +85,7 @@ export function registerReviewCommand(program: Command): void {
       const triggeredReviewers = project ? pickReviewers(project, scopedFiles) : null;
       const reviewerNames = triggeredReviewers
         ? triggeredReviewers.map((r) => r.entry.id).join(", ")
-        : "core-logic, security, architecture (built-in defaults)";
+        : "correctness, security, architecture, testing, operability (built-in defaults)";
 
       if (opts.dryRun) {
         process.stdout.write(

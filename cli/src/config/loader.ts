@@ -33,6 +33,11 @@ export class ConfigError extends Error {
   }
 }
 
+const LEGACY_REVIEWER_PATH_FALLBACKS: Record<string, string[]> = {
+  correctness: ["reviewers/core-logic.md"],
+  "core-logic": ["reviewers/correctness.md"],
+};
+
 export async function loadProject(cwd: string): Promise<LoadedProject> {
   const root = findConfigRoot(cwd);
   if (!root) {
@@ -49,11 +54,16 @@ export async function loadProject(cwd: string): Promise<LoadedProject> {
 
   const reviewers: LoadedReviewer[] = [];
   for (const entry of manifest.reviewers) {
-    const promptPath = resolve(root, ".contextur", entry.path);
-    const prompt = await readFile(promptPath, "utf8").catch(() => null);
+    const promptPathCandidates = [
+      resolve(root, ".contextur", entry.path),
+      ...(LEGACY_REVIEWER_PATH_FALLBACKS[entry.id] ?? []).map((fallbackPath) =>
+        resolve(root, ".contextur", fallbackPath),
+      ),
+    ];
+    const prompt = await readFirstReadableFile(promptPathCandidates);
     if (prompt === null) {
       throw new ConfigError(
-        `Reviewer prompt not found for "${entry.id}": ${promptPath}`,
+        `Reviewer prompt not found for "${entry.id}": ${promptPathCandidates[0]}`,
       );
     }
     reviewers.push({ entry, prompt });
@@ -113,6 +123,14 @@ async function parseFile<S extends z.ZodTypeAny>(
     throw new ConfigError(`Invalid config at ${path}:\n${issues}`);
   }
   return result.data;
+}
+
+async function readFirstReadableFile(paths: string[]): Promise<string | null> {
+  for (const path of paths) {
+    const content = await readFile(path, "utf8").catch(() => null);
+    if (content !== null) return content;
+  }
+  return null;
 }
 
 function findConfigRoot(start: string): string | null {

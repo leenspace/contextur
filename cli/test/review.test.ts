@@ -25,7 +25,7 @@ function makeProject(overrides?: {
   synthesizerPrompt?: string;
 }) {
   const reviewers = (overrides?.reviewers ?? [
-    { id: "core-logic", prompt: "CORE LOGIC INSTRUCTIONS", trigger: "**/*", mandatory: true },
+    { id: "correctness", prompt: "CORRECTNESS INSTRUCTIONS", trigger: "**/*", mandatory: true },
     { id: "security", prompt: "SECURITY INSTRUCTIONS", trigger: "**/*.ts", mandatory: false },
   ]).map((r) => ({
     entry: {
@@ -54,7 +54,7 @@ describe("buildReviewRequest", () => {
     const doc = buildReviewRequest({
       project,
       triggeredReviewers: project.reviewers,
-      reviewerNames: "core-logic, security",
+      reviewerNames: "correctness, security",
       baseRef: "main",
       headSha: "abc1234",
       changedFiles: ["src/x.ts"],
@@ -64,7 +64,7 @@ describe("buildReviewRequest", () => {
     expect(doc).toMatch(/# Contextur Review Request — \d{4}-\d{2}-\d{2}/);
     expect(doc).toContain("main..HEAD (abc1234)");
     expect(doc).toContain("Changed files**: 1");
-    expect(doc).toContain("core-logic, security");
+    expect(doc).toContain("correctness, security");
   });
 
   it("embeds all triggered reviewer prompts in Stage 1", () => {
@@ -72,7 +72,7 @@ describe("buildReviewRequest", () => {
     const doc = buildReviewRequest({
       project,
       triggeredReviewers: project.reviewers,
-      reviewerNames: "core-logic, security",
+      reviewerNames: "correctness, security",
       baseRef: "main",
       headSha: "abc1234",
       changedFiles: ["src/x.ts"],
@@ -80,8 +80,8 @@ describe("buildReviewRequest", () => {
     });
 
     expect(doc).toContain("## Stage 1 — Specialist reviewers");
-    expect(doc).toContain("### core-logic");
-    expect(doc).toContain("CORE LOGIC INSTRUCTIONS");
+    expect(doc).toContain("### correctness");
+    expect(doc).toContain("CORRECTNESS INSTRUCTIONS");
     expect(doc).toContain("### security");
     expect(doc).toContain("SECURITY INSTRUCTIONS");
   });
@@ -91,7 +91,7 @@ describe("buildReviewRequest", () => {
     const doc = buildReviewRequest({
       project,
       triggeredReviewers: project.reviewers,
-      reviewerNames: "core-logic, security",
+      reviewerNames: "correctness, security",
       baseRef: "main",
       headSha: "abc1234",
       changedFiles: ["src/x.ts"],
@@ -109,7 +109,7 @@ describe("buildReviewRequest", () => {
     const doc = buildReviewRequest({
       project,
       triggeredReviewers: project.reviewers,
-      reviewerNames: "core-logic, security",
+      reviewerNames: "correctness, security",
       baseRef: "main",
       headSha: "abc1234",
       changedFiles: ["src/x.ts"],
@@ -127,7 +127,7 @@ describe("buildReviewRequest", () => {
     const doc = buildReviewRequest({
       project,
       triggeredReviewers: project.reviewers,
-      reviewerNames: "core-logic",
+      reviewerNames: "correctness",
       baseRef: "main",
       headSha: "abc1234",
       changedFiles: ["src/x.ts"],
@@ -142,7 +142,7 @@ describe("buildReviewRequest", () => {
     const doc = buildReviewRequest({
       project: null,
       triggeredReviewers: null,
-      reviewerNames: "core-logic, security, architecture (built-in defaults)",
+      reviewerNames: "correctness, security, architecture, testing, operability (built-in defaults)",
       baseRef: "main",
       headSha: "abc1234",
       changedFiles: ["src/x.ts"],

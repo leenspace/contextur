@@ -31,12 +31,14 @@ Do not duplicate or rewrite rules that already exist in these files. Reference t
 - Third-party services (payments, analytics, feature flags, etc.)
 - Naming and file-layout conventions
 
-## Step 4 — Append repo-specific rules to each base reviewer
+## Step 4 — Append repo-specific rules to each mandatory baseline reviewer
 
 For **each** of these files:
-- `.contextur/reviewers/core-logic.md`
+- `.contextur/reviewers/correctness.md`
 - `.contextur/reviewers/security.md`
 - `.contextur/reviewers/architecture.md`
+- `.contextur/reviewers/testing.md`
+- `.contextur/reviewers/operability.md`
 
 Append (at the end of the file) a section like this:
 
@@ -56,7 +58,7 @@ If the section already exists (from a prior run), replace the block between the 
 
 ## Step 5 — Optionally add specialized reviewers
 
-If the repo has a specialized area not covered by the base three reviewers, create a new reviewer. Examples:
+If the repo has a specialized area not covered by the mandatory baseline, create or enable a specialist reviewer. Examples:
 
 - A Flutter app with BLoC → `.contextur/reviewers/flutter-bloc.md`
 - A GraphQL schema → `.contextur/reviewers/graphql-schema.md`

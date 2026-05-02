@@ -50,9 +50,12 @@ One-to-two-sentence explanation of the concrete failure mode.
 1-3 bullets on the strongest positive aspects across all specialists. If nothing stands out, write "No specific positives noted.".
 
 ## Reviewer capsules
-- core-logic → <critical count>/<high>/<medium>/<low> · one-line focus note.
+- correctness → <critical count>/<high>/<medium>/<low> · one-line focus note.
 - security → <counts> · one-line focus note.
 - architecture → <counts> · one-line focus note.
+- testing → <counts> · one-line focus note.
+- operability → <counts> · one-line focus note.
+- <optional-reviewer-id> → <counts> · one-line focus note.
 ```
 
 VERDICT RULES:

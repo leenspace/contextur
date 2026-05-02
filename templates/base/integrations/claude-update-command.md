@@ -4,8 +4,8 @@ Re-scan this repository and update the Contextur reviewers to reflect recent cha
 
 Read, in this order:
 
-1. **Current repo-specific rules** in each of `.contextur/reviewers/core-logic.md`, `security.md`, `architecture.md`. Look for the `<!-- contextur:repo-specific-start -->` / `<!-- contextur:repo-specific-end -->` markers. This tells you what has already been documented.
-2. **Any custom reviewers** in `.contextur/reviewers/` beyond the base three, plus `.contextur/manifest.yaml`.
+1. **Current repo-specific rules** in each mandatory baseline reviewer file. Prefer `.contextur/reviewers/correctness.md`, `security.md`, `architecture.md`, `testing.md`, and `operability.md`; also read legacy `.contextur/reviewers/core-logic.md` if present. Look for the `<!-- contextur:repo-specific-start -->` / `<!-- contextur:repo-specific-end -->` markers. This tells you what has already been documented.
+2. **Any custom/optional reviewers** in `.contextur/reviewers/` beyond the mandatory baseline, plus `.contextur/manifest.yaml`.
 3. **Existing AI-friendly docs** (same list as init):
    - `AGENTS.md`, `.cursorrules`, `.cursor/rules/*.mdc`, `CLAUDE.md`, `.claude/commands/*.md`
    - `.github/copilot-instructions.md`, `.aider.conf.yml`, `.windsurfrules`
@@ -30,7 +30,7 @@ Also cross-check with external docs: if `ARCHITECTURE.md` has changed in ways th
 
 ## Step 4 — Rewrite the repo-specific blocks
 
-For each of `core-logic.md`, `security.md`, `architecture.md`:
+For each mandatory baseline reviewer file present (`correctness.md`, `security.md`, `architecture.md`, `testing.md`, `operability.md`; or legacy `core-logic.md`):
 1. Locate the `<!-- contextur:repo-specific-start -->` / `<!-- contextur:repo-specific-end -->` markers.
 2. **Replace** the content between the markers with the updated rules.
 3. Do NOT append a new block. Do NOT touch anything outside the markers.
@@ -39,7 +39,7 @@ If the markers don't exist (reviewer was never personalized), create a `## Repo-
 
 ## Step 5 — Review custom reviewer files
 
-For each custom reviewer in `.contextur/reviewers/` (beyond the base three):
+For each custom or optional reviewer in `.contextur/reviewers/` (beyond the mandatory baseline):
 
 - If it references paths that no longer exist: flag it to the user, propose a fix, and ask before rewriting.
 - If a new specialized area has emerged (e.g., a new subsystem was added since last update) that warrants its own reviewer: propose creating it.
