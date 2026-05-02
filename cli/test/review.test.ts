@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildReviewRequest } from "../src/commands/review.js";
+import {
+  buildReviewRequest,
+  matchesPathFilter,
+  parseCsv,
+  scopeFilesByPaths,
+} from "../src/commands/review.js";
 import type { ContextBundle } from "../src/core/context-bundle.js";
 
 function makeBundle(): ContextBundle {
@@ -58,12 +63,14 @@ describe("buildReviewRequest", () => {
       baseRef: "main",
       headSha: "abc1234",
       changedFiles: ["src/x.ts"],
+      totalChangedFiles: 1,
+      pathFilters: [],
       bundle: makeBundle(),
     });
 
     expect(doc).toMatch(/# Contextur Review Request — \d{4}-\d{2}-\d{2}/);
     expect(doc).toContain("main..HEAD (abc1234)");
-    expect(doc).toContain("Changed files**: 1");
+    expect(doc).toContain("Selected files**: 1 / 1");
     expect(doc).toContain("correctness, security");
   });
 
@@ -76,6 +83,8 @@ describe("buildReviewRequest", () => {
       baseRef: "main",
       headSha: "abc1234",
       changedFiles: ["src/x.ts"],
+      totalChangedFiles: 1,
+      pathFilters: [],
       bundle: makeBundle(),
     });
 
@@ -95,6 +104,8 @@ describe("buildReviewRequest", () => {
       baseRef: "main",
       headSha: "abc1234",
       changedFiles: ["src/x.ts"],
+      totalChangedFiles: 1,
+      pathFilters: [],
       bundle: makeBundle(),
     });
 
@@ -113,6 +124,8 @@ describe("buildReviewRequest", () => {
       baseRef: "main",
       headSha: "abc1234",
       changedFiles: ["src/x.ts"],
+      totalChangedFiles: 1,
+      pathFilters: [],
       bundle: makeBundle(),
     });
 
@@ -131,6 +144,8 @@ describe("buildReviewRequest", () => {
       baseRef: "main",
       headSha: "abc1234",
       changedFiles: ["src/x.ts"],
+      totalChangedFiles: 1,
+      pathFilters: [],
       bundle: makeBundle(),
       focus: "check for SQL injection",
     });
@@ -146,10 +161,59 @@ describe("buildReviewRequest", () => {
       baseRef: "main",
       headSha: "abc1234",
       changedFiles: ["src/x.ts"],
+      totalChangedFiles: 1,
+      pathFilters: [],
       bundle: makeBundle(),
     });
 
     expect(doc).toContain("contextur init");
     expect(doc).toContain("built-in defaults");
+  });
+
+  it("shows selected files list when narrowed", () => {
+    const project = makeProject();
+    const doc = buildReviewRequest({
+      project,
+      triggeredReviewers: project.reviewers,
+      reviewerNames: "correctness, security",
+      baseRef: "main",
+      headSha: "abc1234",
+      changedFiles: ["src/x.ts"],
+      totalChangedFiles: 3,
+      pathFilters: ["src/**"],
+      bundle: makeBundle(),
+    });
+
+    expect(doc).toContain("Selected files**: 1 / 3");
+    expect(doc).toContain("Path filters**: src/**");
+    expect(doc).toContain("### Selected files");
+    expect(doc).toContain("- `src/x.ts`");
+  });
+});
+
+describe("review option helpers", () => {
+  it("parses comma-separated lists and trims empty values", () => {
+    expect(parseCsv(" correctness, security ,, testing ")).toEqual([
+      "correctness",
+      "security",
+      "testing",
+    ]);
+    expect(parseCsv("")).toEqual([]);
+    expect(parseCsv(undefined)).toEqual([]);
+  });
+
+  it("matches globs and path prefixes", () => {
+    expect(matchesPathFilter("src/foo.ts", "src/**")).toBe(true);
+    expect(matchesPathFilter("src/foo.ts", "./src")).toBe(true);
+    expect(matchesPathFilter("src/foo.ts", "test")).toBe(false);
+  });
+
+  it("scopes files with mixed filters", () => {
+    const files = ["src/foo.ts", "src/bar.ts", "docs/readme.md", "test/foo.test.ts"];
+    expect(scopeFilesByPaths(files, ["src", "**/*.md"])).toEqual([
+      "src/foo.ts",
+      "src/bar.ts",
+      "docs/readme.md",
+    ]);
   });
 });

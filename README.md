@@ -125,14 +125,30 @@ Legacy setups using `core-logic` remain supported for backward compatibility.
 
 ```bash
 contextur init [--force] [--yes]
-contextur review [--base <ref>] [--focus <text>] [--paths <prefixes>] [--dry-run]
+contextur review [--base <ref>] [--focus <text>] [--paths <filters>] [--reviewers <ids>] [--no-interactive] [--dry-run]
 ```
 
 Notes:
 
-- `--paths` scopes files by comma-separated path prefixes.
+- In a TTY, `contextur review` starts an interactive intake by default (reviewers, file selection, and focus).
+- Use `--no-interactive` for CI/scripts or deterministic non-interactive runs.
+- `--paths` scopes files by comma-separated filters (supports globs like `src/**` and simple prefixes like `src`).
+- `--reviewers` sets reviewer ids explicitly (comma-separated). Mandatory reviewers are always included.
 - `--dry-run` prints routing decisions and bundle stats without reviewer prompts.
 - `max_file_bytes` is configurable in `.contextur/config.yaml`; large-diff bundle heuristics (preload budgets and thresholds) currently use internal defaults.
+
+Examples:
+
+```bash
+# Interactive intake (default in terminals)
+contextur review
+
+# Non-interactive run for CI
+contextur review --no-interactive --base main --paths "src/**,docs/**"
+
+# Explicit reviewers + focused scope
+contextur review --reviewers "correctness,security,performance" --paths "src/api/**" --focus "auth and permission regressions"
+```
 
 ## Design
 
