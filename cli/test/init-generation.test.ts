@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { readFile } from "node:fs/promises";
 import {
   buildManifestFromSignals,
   buildRepoSnapshot,
@@ -28,6 +29,10 @@ function makeSignals(overrides?: Partial<RepoSignals>): RepoSignals {
     existingContextFiles: ["README.md"],
     ...overrides,
   };
+}
+
+async function readIntegrationTemplate(name: string): Promise<string> {
+  return readFile(new URL(`../../templates/base/integrations/${name}`, import.meta.url), "utf8");
 }
 
 describe("init generation helpers", () => {
@@ -83,5 +88,43 @@ describe("init generation helpers", () => {
     expect(manifest.reviewers.find((r) => r.id === "architecture")?.mandatory).toBe(true);
     expect(manifest.reviewers.find((r) => r.id === "testing")?.mandatory).toBe(true);
     expect(manifest.reviewers.find((r) => r.id === "operability")?.mandatory).toBe(true);
+  });
+
+  it("documents the subagent-driven init protocol in every init entry point", async () => {
+    const claudeCommand = await readIntegrationTemplate("claude-init-command.md");
+    const sharedSkill = await readIntegrationTemplate("skill-contextur-init.md");
+    const requiredSections = [
+      "## Step 3 - Launch reviewer research subagents in parallel",
+      "## Reviewer-question matrix",
+      "### correctness",
+      "### security",
+      "### architecture",
+      "### testing",
+      "### operability",
+      "## Required subagent return format",
+      "## candidate_rules",
+      "## do_not_infer",
+    ];
+
+    for (const section of requiredSections) {
+      expect(claudeCommand).toContain(section);
+      expect(sharedSkill).toContain(section);
+    }
+  });
+
+  it("keeps Claude command and shared skill init protocols aligned", async () => {
+    const claudeCommand = await readIntegrationTemplate("claude-init-command.md");
+    const sharedSkill = await readIntegrationTemplate("skill-contextur-init.md");
+    const skillBody = sharedSkill.replace(/^---\n[\s\S]*?\n---\n\n/u, "");
+
+    expect(skillBody).toBe(claudeCommand);
+  });
+
+  it("points Cursor personalization at the shared init skill before Claude fallback", async () => {
+    const cursorRule = await readIntegrationTemplate("cursor-rule.mdc");
+
+    expect(cursorRule).toContain("Prefer `.agents/skills/contextur-init/SKILL.md`");
+    expect(cursorRule).toContain("If the shared skill is missing");
+    expect(cursorRule).toContain("`.claude/commands/contextur-init.md`");
   });
 });

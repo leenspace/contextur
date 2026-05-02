@@ -18,7 +18,9 @@ Present only the synthesized report to the user.
 
 ## When asked to "initialize contextur" / "set up contextur for this repo" / "personalize the reviewers"
 
-Read `.claude/commands/contextur-init.md` in this repo and follow its instructions exactly. (It contains the full protocol for ingesting existing AI-friendly docs, scanning the codebase, and appending `## Repo-specific rules` sections to each reviewer.) If `.claude/commands/contextur-init.md` is missing, ask the user to re-run `contextur init` in the terminal first.
+Prefer `.agents/skills/contextur-init/SKILL.md` when it exists and follow it exactly. It contains the full protocol for ingesting existing AI-friendly docs, launching reviewer-focused research subagents, and appending `## Repo-specific rules` sections to each reviewer.
+
+If the shared skill is missing, read `.claude/commands/contextur-init.md` and follow that protocol instead. If both files are missing, ask the user to re-run `contextur init` in the terminal first.
 
 ## When asked to "update contextur" / "refresh the reviewers" / "sync contextur with recent changes"
 
