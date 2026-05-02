@@ -1,8 +1,10 @@
 # Contextur
 
-A transparent, locally-run framework that prepares structured code review context for your AI IDE.
+Contextur prepares agent-ready code review prompts and context from your git diff.
 
-Run `contextur review`, feed the output to Claude Code, Cursor, Codex, or any AI assistant — your AI follows the multi-stage review pipeline defined in `.contextur/`. No API keys. No vendor lock-in. The prompts live in your repo as plain Markdown.
+Run `contextur review` and feed the output to Claude Code, Cursor, Codex, or any AI assistant. Contextur does not run the model itself: it generates one structured review request that your AI tool executes through your multi-stage pipeline in `.contextur/`.
+
+No API keys. No vendor lock-in. Prompts live in your repo as plain Markdown.
 
 > Status: early MVP, not yet published to npm.
 
@@ -25,88 +27,108 @@ Once published:
 
 ```bash
 npx contextur@latest init
-npx contextur review
+npx contextur@latest review
 ```
 
 ## Quickstart
 
 ```bash
-# In your project
-contextur init                         # scans repo, writes .contextur/ + AGENTS.md
+# In your target project repo
+contextur init                         # writes .contextur/ and AGENTS.md
 git checkout -b my-change
 # ... make changes and commit ...
-contextur review --base main           # prints a structured review request to stdout
+contextur review --base main           # prints one structured review request to stdout
 ```
 
-Then feed the output to your AI assistant:
+Use the output in your AI tool:
 
 ```bash
-# In Claude Code
-contextur review --base main | cat     # the output is already in Claude's context
-
-# Or write to a file for Cursor / Codex
+# Save and paste into any AI IDE/agent workflow
 contextur review --base main > review-request.md
 ```
 
-Your AI reads the review request and follows the 3-stage pipeline: specialist reviewers → adversarial challenger → synthesizer.
+The review request includes a 3-stage flow for your AI to run:
 
-## What gets generated
+1. Specialist reviewers
+2. Challenger
+3. Synthesizer
 
-```
+## How it works
+
+Contextur has two core commands:
+
+- `contextur init` scaffolds editable prompts and config in `.contextur/`, writes `AGENTS.md`, and can add optional IDE integration files for Claude Code and Cursor.
+- `contextur review` builds a context bundle from `git diff <base>...HEAD`, selects reviewers, applies safety wrapping, and emits a single Markdown review request.
+
+The generated review document is intentionally tool-agnostic. Claude Code, Cursor, and Codex receive the same core request format; integration files are convenience glue for each IDE.
+
+## What `init` generates
+
+```text
 .contextur/
-├── config.yaml           # base branch, ignore paths, size limits
-├── manifest.yaml         # reviewer routing (which specialists trigger on which paths)
+├── config.yaml           # base branch, ignored paths, risk patterns, max_file_bytes
+├── manifest.yaml         # reviewer entries (default built-ins are mandatory: true)
 ├── challenger.md         # adversarial validator prompt
 ├── synthesizer.md        # final-report synthesizer prompt
 └── reviewers/
     ├── core-logic.md
     ├── security.md
     └── architecture.md
-AGENTS.md                  # standard AI-assistant context file for your repo root
+AGENTS.md                  # repo-level assistant context (always generated)
 ```
 
-All Markdown files are meant to be edited. Rules Contextur inferred automatically are wrapped in `<!-- contextur:inferred -->` comments so you can audit and tune them.
+Optional integration files:
 
-## Pipeline
+- Claude Code: `.claude/commands/review.md`, `.claude/commands/contextur-init.md`, `.claude/commands/contextur-update.md`
+- Cursor: `.cursor/rules/contextur.mdc`
+- Codex/OpenAI agents: no extra file required beyond `AGENTS.md`
 
-```
+All generated Markdown files are meant to be edited.
+
+## Review pipeline
+
+```text
 git diff <base>...HEAD
         │
         ▼
 ┌─────────────────────┐
-│  contextur review   │  builds context bundle; routes to triggered reviewers
+│  contextur review   │  builds context bundle + review request
 └─────────┬───────────┘
-          │  (stdout → your AI IDE)
+          │  (stdout)
           ▼
  ┌────────┴────────┐
- │ Specialists     │  core-logic │ security │ architecture  (AI runs each)
+ │ Specialists     │  Stage 1
  └────────┬────────┘
           ▼
  ┌─────────────────┐
- │  Challenger     │  CONFIRMED / DOWNGRADED / REJECTED per high-severity finding
+ │  Challenger     │  Stage 2
  └────────┬────────┘
           ▼
  ┌─────────────────┐
- │  Synthesizer    │  single developer-facing report
+ │  Synthesizer    │  Stage 3
  └─────────────────┘
 ```
 
-The Challenger exists specifically to knock out false positives — the common failure mode of single-prompt review tools. Add/remove reviewers by editing `.contextur/manifest.yaml`; write custom reviewers by dropping new Markdown files into `.contextur/reviewers/` and adding a matching entry.
+Default templates mark built-in reviewers as mandatory, so all three run unless you customize `.contextur/manifest.yaml`. You can add custom reviewers by creating Markdown files in `.contextur/reviewers/` and adding matching manifest entries.
 
 ## Security model
 
-- Every user-sourced payload (diff, file contents, commit log) is wrapped in `<user_*>` XML tags, and every reviewer prompt is primed with a standing instruction to ignore commands found inside those tags.
-- Contextur never calls any LLM API. Your AI IDE provides the intelligence; Contextur provides the context.
-- All data stays local. Nothing is routed through any third-party SaaS.
+- User-sourced payloads (diff, file contents, commit log) are wrapped in `<user_*>` XML tags, and review prompts include standing instructions to ignore commands found inside those tags.
+- Contextur never calls an LLM API. Your AI IDE provides the reasoning; Contextur provides the structured context.
+- Data stays local to your machine and repository.
 
 ## Commands
 
 ```bash
 contextur init [--force] [--yes]
-contextur review [--base <ref>] [--focus <text>] [--paths <globs>] [--dry-run]
+contextur review [--base <ref>] [--focus <text>] [--paths <prefixes>] [--dry-run]
 ```
 
-`--dry-run` prints routing decisions and bundle stats without reviewer prompts — use it to sanity-check what Contextur will send.
+Notes:
+
+- `--paths` scopes files by comma-separated path prefixes.
+- `--dry-run` prints routing decisions and bundle stats without reviewer prompts.
+- `max_file_bytes` is configurable in `.contextur/config.yaml`; large-diff bundle heuristics (preload budgets and thresholds) currently use internal defaults.
 
 ## Design
 
