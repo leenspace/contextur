@@ -3,8 +3,10 @@ import { mkdir, writeFile, readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { input, confirm, checkbox } from "@inquirer/prompts";
-import { scanRepo } from "../core/repo-scan.js";
+import { stringify as stringifyYaml } from "yaml";
+import { scanRepo, type RepoSignals } from "../core/repo-scan.js";
 import { readTemplate, render, templatesRoot } from "../core/templates.js";
+import type { Manifest, ReviewerEntry } from "../config/schema.js";
 
 interface InitOptions {
   force: boolean;
@@ -12,6 +14,72 @@ interface InitOptions {
 }
 
 type AiTool = "claude-code" | "cursor" | "codex";
+
+const REVIEWER_IDS = [
+  "correctness",
+  "security",
+  "architecture",
+  "testing",
+  "operability",
+  "performance",
+  "api-contract",
+  "data-migration",
+  "ci-release",
+  "maintainability",
+] as const;
+
+const MANDATORY_BASELINE = new Set<string>([
+  "correctness",
+  "security",
+  "architecture",
+  "testing",
+  "operability",
+]);
+
+const DEFAULT_CODE_GLOBS = [
+  "**/*.ts",
+  "**/*.tsx",
+  "**/*.js",
+  "**/*.jsx",
+  "**/*.py",
+  "**/*.go",
+  "**/*.rs",
+  "**/*.java",
+  "**/*.rb",
+  "**/*.php",
+  "**/*.cs",
+  "**/*.kt",
+  "**/*.swift",
+  "**/*.scala",
+  "**/*.dart",
+];
+
+interface RepoSnapshot {
+  version: "1";
+  base_branch: string;
+  languages: string[];
+  package_manager: string | null;
+  monorepo: {
+    enabled: boolean;
+    tool: string | null;
+    workspace_globs: string[];
+  };
+  top_level_dirs: string[];
+  existing_context_files: string[];
+  architecture_docs: string[];
+  command_hints: {
+    test: string[];
+    lint: string[];
+    build: string[];
+  };
+  capabilities: {
+    api_contracts: boolean;
+    data_migrations: boolean;
+    ci_release: boolean;
+  };
+  recent_hotspots: string[];
+  inferred_rules: string[];
+}
 
 export function registerInitCommand(program: Command): void {
   program
@@ -75,28 +143,17 @@ export function registerInitCommand(program: Command): void {
 
       await mkdir(join(dotDir, "reviewers"), { recursive: true });
 
-      const values: Record<string, string> = {
-        base_branch: baseBranch,
-      };
+      const snapshot = buildRepoSnapshot(signals, baseBranch);
+      const values = buildReviewerTemplateValues(snapshot);
 
       await writeRendered(dotDir, "config.yaml", "base/config.yaml.tmpl", values);
-      await writeRendered(dotDir, "manifest.yaml", "base/manifest.yaml.tmpl", values);
+      await writeFile(join(dotDir, "repo-snapshot.yaml"), stringifyYaml(snapshot));
+      await writeFile(join(dotDir, "manifest.yaml"), stringifyYaml(buildManifestFromSignals(signals)));
       await writeCopy(dotDir, "challenger.md", "base/challenger.md");
       await writeCopy(dotDir, "synthesizer.md", "base/synthesizer.md");
 
-      for (const name of [
-        "correctness",
-        "security",
-        "architecture",
-        "testing",
-        "operability",
-        "performance",
-        "api-contract",
-        "data-migration",
-        "ci-release",
-        "maintainability",
-      ]) {
-        await writeCopy(dotDir, `reviewers/${name}.md`, `base/reviewers/${name}.md`);
+      for (const name of REVIEWER_IDS) {
+        await writeRendered(dotDir, `reviewers/${name}.md`, `base/reviewers/${name}.md`, values);
       }
 
       // Claude Code: .claude/commands/{review,contextur-init,contextur-update}.md
@@ -180,6 +237,155 @@ export function registerInitCommand(program: Command): void {
           `To run a review manually from the terminal:\n  contextur review --base ${baseBranch}\n`,
       );
     });
+}
+
+export function buildRepoSnapshot(signals: RepoSignals, baseBranch: string): RepoSnapshot {
+  return {
+    version: "1",
+    base_branch: baseBranch,
+    languages: signals.languages,
+    package_manager: signals.packageManager,
+    monorepo: {
+      enabled: signals.monorepo,
+      tool: signals.monorepoTool,
+      workspace_globs: signals.workspaceGlobs,
+    },
+    top_level_dirs: signals.topLevelDirs,
+    existing_context_files: signals.existingContextFiles,
+    architecture_docs: signals.architectureDocs,
+    command_hints: {
+      test: signals.testCommands,
+      lint: signals.lintCommands,
+      build: signals.buildCommands,
+    },
+    capabilities: {
+      api_contracts: signals.hasApiContracts,
+      data_migrations: signals.hasDataMigrations,
+      ci_release: signals.hasCiConfig,
+    },
+    recent_hotspots: signals.recentHotspots,
+    inferred_rules: signals.inferredRules,
+  };
+}
+
+export function buildReviewerTemplateValues(snapshot: RepoSnapshot): Record<string, string> {
+  const joinOrUnknown = (values: string[], unknownLabel = "(none detected)"): string =>
+    values.length > 0 ? values.join(", ") : unknownLabel;
+
+  return {
+    base_branch: snapshot.base_branch,
+    repo_languages: joinOrUnknown(snapshot.languages, "(none detected)"),
+    repo_package_manager: snapshot.package_manager ?? "(unknown)",
+    repo_monorepo: snapshot.monorepo.enabled
+      ? `yes (${snapshot.monorepo.tool ?? "detected"})`
+      : "no",
+    repo_workspaces: joinOrUnknown(snapshot.monorepo.workspace_globs),
+    repo_top_level_dirs: joinOrUnknown(snapshot.top_level_dirs),
+    repo_context_files: joinOrUnknown(snapshot.existing_context_files),
+    repo_architecture_docs: joinOrUnknown(snapshot.architecture_docs),
+    repo_test_commands: joinOrUnknown(snapshot.command_hints.test),
+    repo_lint_commands: joinOrUnknown(snapshot.command_hints.lint),
+    repo_build_commands: joinOrUnknown(snapshot.command_hints.build),
+    repo_hotspots: joinOrUnknown(snapshot.recent_hotspots),
+    repo_has_api_contracts: snapshot.capabilities.api_contracts ? "yes" : "no",
+    repo_has_data_migrations: snapshot.capabilities.data_migrations ? "yes" : "no",
+    repo_has_ci_config: snapshot.capabilities.ci_release ? "yes" : "no",
+    repo_inferred_rules_bullets:
+      snapshot.inferred_rules.length > 0
+        ? snapshot.inferred_rules.map((rule) => `- ${rule}`).join("\n")
+        : "- No project-specific rules inferred yet.",
+  };
+}
+
+export function buildManifestFromSignals(signals: RepoSignals): Manifest {
+  const codeGlobs = codeGlobsForLanguages(signals.languages);
+  const reviewers: ReviewerEntry[] = [
+    reviewer("correctness", "**/*", true),
+    reviewer("security", "**/*", true),
+    reviewer("architecture", "**/*", true),
+    reviewer("testing", "**/*", true),
+    reviewer("operability", "**/*", true),
+    reviewer("performance", codeGlobs, false),
+    reviewer(
+      "api-contract",
+      [
+        "**/*openapi*.yaml",
+        "**/*openapi*.yml",
+        "**/*openapi*.json",
+        "**/*.proto",
+        "**/*.graphql",
+        "**/*.gql",
+        "**/schema/**",
+        "**/contracts/**",
+      ],
+      signals.hasApiContracts,
+    ),
+    reviewer(
+      "data-migration",
+      [
+        "**/migrations/**",
+        "**/migration/**",
+        "**/alembic/**",
+        "**/*.sql",
+        "**/db/**",
+        "**/database/**",
+        "**/schema.prisma",
+        "**/prisma/migrations/**",
+      ],
+      signals.hasDataMigrations,
+    ),
+    reviewer(
+      "ci-release",
+      [
+        ".github/workflows/**",
+        "**/Dockerfile",
+        "**/Dockerfile.*",
+        "**/docker-compose*.yaml",
+        "**/docker-compose*.yml",
+        "**/helm/**",
+        "**/k8s/**",
+        "**/.circleci/**",
+        "**/.gitlab-ci.yml",
+        "**/Jenkinsfile",
+      ],
+      false,
+    ),
+    reviewer("maintainability", codeGlobs, false),
+  ];
+
+  return { reviewers };
+}
+
+function reviewer(id: string, trigger: string | string[], mandatory: boolean): ReviewerEntry {
+  return {
+    id,
+    path: `reviewers/${id}.md`,
+    trigger,
+    mandatory: mandatory || MANDATORY_BASELINE.has(id),
+  };
+}
+
+function codeGlobsForLanguages(languages: string[]): string[] {
+  const globs = new Set<string>();
+  if (languages.includes("typescript/javascript")) {
+    globs.add("**/*.ts");
+    globs.add("**/*.tsx");
+    globs.add("**/*.js");
+    globs.add("**/*.jsx");
+  }
+  if (languages.includes("python")) globs.add("**/*.py");
+  if (languages.includes("go")) globs.add("**/*.go");
+  if (languages.includes("rust")) globs.add("**/*.rs");
+  if (languages.includes("java") || languages.includes("java/kotlin")) {
+    globs.add("**/*.java");
+    globs.add("**/*.kt");
+  }
+  if (languages.includes("ruby")) globs.add("**/*.rb");
+  if (languages.includes("php")) globs.add("**/*.php");
+  if (languages.includes("dart/flutter")) globs.add("**/*.dart");
+
+  const arr = [...globs].sort((a, b) => a.localeCompare(b));
+  return arr.length > 0 ? arr : DEFAULT_CODE_GLOBS;
 }
 
 async function writeCopy(dotDir: string, dest: string, tplRel: string): Promise<void> {

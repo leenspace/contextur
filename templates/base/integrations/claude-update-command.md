@@ -6,7 +6,8 @@ Read, in this order:
 
 1. **Current repo-specific rules** in each mandatory baseline reviewer file. Prefer `.contextur/reviewers/correctness.md`, `security.md`, `architecture.md`, `testing.md`, and `operability.md`; also read legacy `.contextur/reviewers/core-logic.md` if present. Look for the `<!-- contextur:repo-specific-start -->` / `<!-- contextur:repo-specific-end -->` markers. This tells you what has already been documented.
 2. **Any custom/optional reviewers** in `.contextur/reviewers/` beyond the mandatory baseline, plus `.contextur/manifest.yaml`.
-3. **Existing AI-friendly docs** (same list as init):
+3. **Generated repo snapshot** in `.contextur/repo-snapshot.yaml` (treat as baseline unless contradicted by newer code evidence).
+4. **Existing AI-friendly docs** (same list as init):
    - `AGENTS.md`, `.cursorrules`, `.cursor/rules/*.mdc`, `CLAUDE.md`, `.claude/commands/*.md`
    - `.github/copilot-instructions.md`, `.aider.conf.yml`, `.windsurfrules`
    - `ARCHITECTURE.md`, `CONTRIBUTING.md`, `docs/architecture/**`, `README.md`
