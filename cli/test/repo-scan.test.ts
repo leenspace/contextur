@@ -20,6 +20,8 @@ describe("scanRepo", () => {
       join(dir, "package.json"),
       JSON.stringify({
         name: "x",
+        packageManager: "npm@10.9.0",
+        scripts: { test: "vitest run", lint: "eslint .", build: "tsc -p tsconfig.json" },
         dependencies: { react: "^19" },
         devDependencies: { typescript: "^5" },
       }),
@@ -28,6 +30,10 @@ describe("scanRepo", () => {
     expect(signals.languages).toContain("typescript/javascript");
     expect(signals.inferredRules.some((r) => r.includes("React"))).toBe(true);
     expect(signals.inferredRules.some((r) => r.includes("TypeScript"))).toBe(true);
+    expect(signals.packageManager).toBe("npm");
+    expect(signals.testCommands).toContain("npm run test");
+    expect(signals.lintCommands).toContain("npm run lint");
+    expect(signals.buildCommands).toContain("npm run build");
   });
 
   it("detects npm workspaces monorepo", async () => {
@@ -53,5 +59,15 @@ describe("scanRepo", () => {
     await writeFile(join(dir, ".cursorrules"), "rules");
     const signals = await scanRepo(dir);
     expect(signals.existingContextFiles.sort()).toEqual([".cursorrules", "README.md"]);
+    expect(signals.architectureDocs).toContain("README.md");
+  });
+
+  it("detects data migration and contract capabilities", async () => {
+    await mkdir(join(dir, "migrations"), { recursive: true });
+    await mkdir(join(dir, "schema"), { recursive: true });
+    const signals = await scanRepo(dir);
+    expect(signals.hasDataMigrations).toBe(true);
+    expect(signals.hasApiContracts).toBe(true);
+    expect(signals.baseBranchGuess).toBeTruthy();
   });
 });

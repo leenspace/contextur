@@ -15,11 +15,11 @@ beforeEach(async () => {
   );
   await writeFile(
     join(root, ".contextur", "manifest.yaml"),
-    `reviewers:\n  - id: core-logic\n    path: reviewers/core-logic.md\n    trigger: "**/*"\n    mandatory: true\n`,
+    `reviewers:\n  - id: correctness\n    path: reviewers/correctness.md\n    trigger: "**/*"\n    mandatory: true\n`,
   );
   await writeFile(
-    join(root, ".contextur", "reviewers", "core-logic.md"),
-    "CORE LOGIC PROMPT",
+    join(root, ".contextur", "reviewers", "correctness.md"),
+    "CORRECTNESS PROMPT",
   );
   await writeFile(join(root, ".contextur", "challenger.md"), "CHALLENGER");
   await writeFile(join(root, ".contextur", "synthesizer.md"), "SYNTHESIZER");
@@ -34,8 +34,8 @@ describe("loadProject", () => {
     const project = await loadProject(root);
     expect(project.config.base_branch).toBe("main");
     expect(project.reviewers).toHaveLength(1);
-    expect(project.reviewers[0]?.entry.id).toBe("core-logic");
-    expect(project.reviewers[0]?.prompt).toBe("CORE LOGIC PROMPT");
+    expect(project.reviewers[0]?.entry.id).toBe("correctness");
+    expect(project.reviewers[0]?.prompt).toBe("CORRECTNESS PROMPT");
     expect(project.challengerPrompt).toBe("CHALLENGER");
     expect(project.synthesizerPrompt).toBe("SYNTHESIZER");
   });
@@ -63,7 +63,7 @@ describe("loadProject", () => {
   it("throws ConfigError on bad reviewer id", async () => {
     await writeFile(
       join(root, ".contextur", "manifest.yaml"),
-      `reviewers:\n  - id: BadID\n    path: reviewers/core-logic.md\n    trigger: "**/*"\n`,
+      `reviewers:\n  - id: BadID\n    path: reviewers/correctness.md\n    trigger: "**/*"\n`,
     );
     await expect(loadProject(root)).rejects.toThrow(/kebab-case/);
   });
@@ -74,5 +74,20 @@ describe("loadProject", () => {
       `reviewers:\n  - id: missing-one\n    path: reviewers/missing.md\n    trigger: "**/*"\n`,
     );
     await expect(loadProject(root)).rejects.toThrow(/missing-one/);
+  });
+
+  it("loads legacy core-logic id by falling back to correctness prompt path", async () => {
+    await writeFile(
+      join(root, ".contextur", "manifest.yaml"),
+      `reviewers:\n  - id: core-logic\n    path: reviewers/core-logic.md\n    trigger: "**/*"\n    mandatory: true\n`,
+    );
+    await writeFile(
+      join(root, ".contextur", "reviewers", "correctness.md"),
+      "CORRECTNESS PROMPT",
+    );
+
+    const project = await loadProject(root);
+    expect(project.reviewers[0]?.entry.id).toBe("core-logic");
+    expect(project.reviewers[0]?.prompt).toBe("CORRECTNESS PROMPT");
   });
 });

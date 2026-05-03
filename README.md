@@ -57,7 +57,7 @@ The review request includes a 3-stage flow for your AI to run:
 
 Contextur has two core commands:
 
-- `contextur init` scaffolds editable prompts and config in `.contextur/`, writes `AGENTS.md`, and can add optional IDE integration files for Claude Code and Cursor.
+- `contextur init` scaffolds editable prompts and config in `.contextur/`, writes `AGENTS.md`, and can add optional IDE integration files for Claude Code, Cursor, and shared cross-tool skills.
 - `contextur review` builds a context bundle from `git diff <base>...HEAD`, selects reviewers, applies safety wrapping, and emits a single Markdown review request.
 
 The generated review document is intentionally tool-agnostic. Claude Code, Cursor, and Codex receive the same core request format; integration files are convenience glue for each IDE.
@@ -67,23 +67,45 @@ The generated review document is intentionally tool-agnostic. Claude Code, Curso
 ```text
 .contextur/
 ├── config.yaml           # base branch, ignored paths, risk patterns, max_file_bytes
-├── manifest.yaml         # reviewer entries (default built-ins are mandatory: true)
+├── manifest.yaml         # reviewer entries (five mandatory baseline + optional specialists)
 ├── challenger.md         # adversarial validator prompt
 ├── synthesizer.md        # final-report synthesizer prompt
 └── reviewers/
-    ├── core-logic.md
+    ├── correctness.md
     ├── security.md
-    └── architecture.md
+    ├── architecture.md
+    ├── testing.md
+    ├── operability.md
+    └── ... (optional specialists)
 AGENTS.md                  # repo-level assistant context (always generated)
 ```
 
 Optional integration files:
 
-- Claude Code: `.claude/commands/review.md`, `.claude/commands/contextur-init.md`, `.claude/commands/contextur-update.md`
+- Claude Code: `.claude/commands/contextur-review.md`, `.claude/commands/contextur-init.md`, `.claude/commands/contextur-update.md`
 - Cursor: `.cursor/rules/contextur.mdc`
-- Codex/OpenAI agents: no extra file required beyond `AGENTS.md`
+- Shared skills (Claude/Cursor/Codex-compatible): `.agents/skills/contextur-init/SKILL.md`, `.agents/skills/contextur-update/SKILL.md`, `.agents/skills/contextur-review/SKILL.md`
+- Codex/OpenAI agents: `AGENTS.md` + optional `.agents/skills/*` (recommended for explicit command-like workflows)
 
 All generated Markdown files are meant to be edited.
+
+### Command availability by tool
+
+Contextur uses a dual-layer approach:
+
+- Tool-specific wrappers:
+  - Claude Code project commands (`/project:contextur-init`, `/project:contextur-update`, `/project:contextur-review`)
+  - Cursor project rules (`.cursor/rules/contextur.mdc`) that instruct agent behavior
+- Shared skills:
+  - `contextur-init`, `contextur-update`, `contextur-review` in `.agents/skills/`
+  - Designed to work across Claude, Cursor, and Codex-style agentic tools
+
+Invocation UX differs slightly by tool:
+
+- Claude/Cursor typically expose skills in slash menus.
+- Codex supports explicit skill invocation via `$skill-name` (for example `$contextur-review`) and also uses `AGENTS.md` for persistent repo guidance.
+- Codex has a built-in `/review` command, so use Contextur via `$contextur-review` to run the Contextur pipeline.
+- The generated `/contextur-review` skill asks for optional reviewers, files or path areas, and review focus through the agent UI, then passes those choices to `contextur review --no-interactive`.
 
 ## Review pipeline
 
@@ -109,7 +131,8 @@ git diff <base>...HEAD
  └─────────────────┘
 ```
 
-Default templates mark built-in reviewers as mandatory, so all three run unless you customize `.contextur/manifest.yaml`. You can add custom reviewers by creating Markdown files in `.contextur/reviewers/` and adding matching manifest entries.
+Default templates include a stack-agnostic mandatory baseline (`correctness`, `security`, `architecture`, `testing`, `operability`) plus optional specialists (`performance`, `api-contract`, `data-migration`, `ci-release`, `maintainability`) that trigger by path patterns. You can customize `.contextur/manifest.yaml` freely and add custom reviewers by creating Markdown files in `.contextur/reviewers/` and adding matching manifest entries.
+Legacy setups using `core-logic` remain supported for backward compatibility.
 
 ## Security model
 
@@ -121,14 +144,31 @@ Default templates mark built-in reviewers as mandatory, so all three run unless 
 
 ```bash
 contextur init [--force] [--yes]
-contextur review [--base <ref>] [--focus <text>] [--paths <prefixes>] [--dry-run]
+contextur review [--base <ref>] [--focus <text>] [--paths <filters>] [--reviewers <ids>] [--no-interactive] [--dry-run]
 ```
 
 Notes:
 
-- `--paths` scopes files by comma-separated path prefixes.
+- In a TTY, `contextur review` starts an interactive intake by default (reviewers, file selection, and focus).
+- In agent-driven `/contextur-review` workflows, the generated skill asks those same intake questions in the agent UI and forwards the selected values with `--reviewers`, `--paths`, and `--focus`.
+- Use `--no-interactive` for CI/scripts or deterministic non-interactive runs.
+- `--paths` scopes files by comma-separated filters (supports globs like `src/**` and simple prefixes like `src`).
+- `--reviewers` sets reviewer ids explicitly (comma-separated). Mandatory reviewers are always included.
 - `--dry-run` prints routing decisions and bundle stats without reviewer prompts.
 - `max_file_bytes` is configurable in `.contextur/config.yaml`; large-diff bundle heuristics (preload budgets and thresholds) currently use internal defaults.
+
+Examples:
+
+```bash
+# Interactive intake (default in terminals)
+contextur review
+
+# Non-interactive run for CI
+contextur review --no-interactive --base main --paths "src/**,docs/**"
+
+# Explicit reviewers + focused scope
+contextur review --reviewers "correctness,security,performance" --paths "src/api/**" --focus "auth and permission regressions"
+```
 
 ## Design
 
