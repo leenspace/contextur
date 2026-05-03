@@ -260,7 +260,7 @@ export function registerInitCommand(program: Command): void {
       }
       if (aiTools.includes("codex")) {
         integrationLines.push(
-          "  Codex: reads AGENTS.md and can invoke shared skills (e.g. $contextur-review; intake helper: contextur review-intake)",
+          "  Codex: reads AGENTS.md and can invoke shared skills (e.g. $contextur-review)",
         );
       }
       if (aiTools.includes("shared-skills")) {

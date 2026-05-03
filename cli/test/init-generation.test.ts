@@ -139,9 +139,10 @@ describe("init generation helpers", () => {
     expect(claudeReview).toContain("Use `AskUserQuestion` to gather");
   });
 
-  it("documents Codex intake helper in shared review skill", async () => {
+  it("documents Codex native intake with fallback in shared review skill", async () => {
     const reviewSkill = await readIntegrationTemplate("skill-review.md");
-    expect(reviewSkill).toContain("contextur review-intake --base <base>");
+    expect(reviewSkill).toContain("native user-input tool");
+    expect(reviewSkill).toContain("plain-text intake question");
     expect(reviewSkill).toContain("Codex note:");
   });
 });
