@@ -1,16 +1,20 @@
 # Contextur
 
-Contextur prepares agent-ready code review prompts and context from your git diff.
+Contextur helps you run consistent, high-signal AI code reviews in agentic development tools like Cursor, Claude, and Codex.
 
-Run `contextur review` and feed the output to Claude Code, Cursor, Codex, or any AI assistant. Contextur does not run the model itself: it generates one structured review request that your AI tool executes through your multi-stage pipeline in `.contextur/`.
+The recommended usage is command-driven:
 
-No API keys. No vendor lock-in. Prompts live in your repo as plain Markdown.
+1. In the target repository, run `contextur-init` in the terminal, then run the `contextur-init` agentic command in your tool.
+2. Run `contextur-review` whenever you want a review of your current branch changes.
+3. Run `contextur-update` when your architecture, workflows, or review standards change.
 
-> Status: early MVP, not yet published to npm.
+Contextur prepares the right review context from your repository and guides the review flow through structured prompts.
 
 ## Install
 
-Not on npm yet. For local development:
+Status: early MVP, not yet published to npm.
+
+For local development:
 
 ```bash
 git clone <this repo>
@@ -23,116 +27,109 @@ npm link -w contextur
 node $(pwd)/cli/dist/index.js --help
 ```
 
-Once published:
+## Recommended Workflow
+
+Use this sequence for reliable reviews:
+
+### 1) Initialize once (required, two-step)
+
+After installing Contextur, initialize in the repository you want to review:
 
 ```bash
-npx contextur@latest init
-npx contextur@latest review
+# In the target project repository
+contextur-init
 ```
 
-## Quickstart
+Then run the `contextur-init` agentic command inside your AI tool (Cursor/Claude/Codex workflow) so the tool-side setup is also applied.
+
+What this does:
+
+- Sets up Contextur files and prompts in the repository
+- Establishes your baseline review workflow
+- Prepares agent tools to run review/update commands consistently
+
+### 2) Review your current change
+
+When you have a branch or commit to review, run:
 
 ```bash
-# In your target project repo
-contextur init                         # writes .contextur/ and AGENTS.md
-git checkout -b my-change
-# ... make changes and commit ...
-contextur review --base main           # prints one structured review request to stdout
+contextur-review
 ```
 
-Use the output in your AI tool:
+The command is interactive and asks follow-up questions (for example, focus areas, reviewer mix, or scope). Then it runs the review pipeline against your changes and produces a structured review request/output for your agent workflow.
+
+### 3) Update when architecture or standards evolve
+
+If your system architecture changes, or you want to improve reviewer behavior/prompts, run:
 
 ```bash
-# Save and paste into any AI IDE/agent workflow
-contextur review --base main > review-request.md
+contextur-update
 ```
 
-The review request includes a 3-stage flow for your AI to run:
+Use this after major design shifts, new domain rules, or process changes so future reviews stay aligned with how your project actually works.
 
-1. Specialist reviewers
-2. Challenger
-3. Synthesizer
+## Practical Day-to-Day Flow
 
-## How it works
+```bash
+# In your project repo
+contextur-init
+# Then in your AI tool: run the `contextur-init` agentic command
 
-Contextur has two core commands:
+# ...make code changes...
+git add .
+git commit -m "your change"
 
-- `contextur init` scaffolds editable prompts and config in `.contextur/`, writes `AGENTS.md`, and can add optional IDE integration files for Claude Code and Cursor.
-- `contextur review` builds a context bundle from `git diff <base>...HEAD`, selects reviewers, applies safety wrapping, and emits a single Markdown review request.
+# Run interactive review intake
+contextur-review
 
-The generated review document is intentionally tool-agnostic. Claude Code, Cursor, and Codex receive the same core request format; integration files are convenience glue for each IDE.
-
-## What `init` generates
-
-```text
-.contextur/
-├── config.yaml           # base branch, ignored paths, risk patterns, max_file_bytes
-├── manifest.yaml         # reviewer entries (default built-ins are mandatory: true)
-├── challenger.md         # adversarial validator prompt
-├── synthesizer.md        # final-report synthesizer prompt
-└── reviewers/
-    ├── core-logic.md
-    ├── security.md
-    └── architecture.md
-AGENTS.md                  # repo-level assistant context (always generated)
+# Later, when architecture/review logic changes
+contextur-update
 ```
 
-Optional integration files:
+## Command Reference
 
-- Claude Code: `.claude/commands/review.md`, `.claude/commands/contextur-init.md`, `.claude/commands/contextur-update.md`
-- Cursor: `.cursor/rules/contextur.mdc`
-- Codex/OpenAI agents: no extra file required beyond `AGENTS.md`
+Primary agent-facing commands:
 
-All generated Markdown files are meant to be edited.
-
-## Review pipeline
-
-```text
-git diff <base>...HEAD
-        │
-        ▼
-┌─────────────────────┐
-│  contextur review   │  builds context bundle + review request
-└─────────┬───────────┘
-          │  (stdout)
-          ▼
- ┌────────┴────────┐
- │ Specialists     │  Stage 1
- └────────┬────────┘
-          ▼
- ┌─────────────────┐
- │  Challenger     │  Stage 2
- └────────┬────────┘
-          ▼
- ┌─────────────────┐
- │  Synthesizer    │  Stage 3
- └─────────────────┘
+```bash
+contextur-init
+contextur-review
+contextur-update
 ```
 
-Default templates mark built-in reviewers as mandatory, so all three run unless you customize `.contextur/manifest.yaml`. You can add custom reviewers by creating Markdown files in `.contextur/reviewers/` and adding matching manifest entries.
-
-## Security model
-
-- User-sourced payloads (diff, file contents, commit log) are wrapped in `<user_*>` XML tags, and review prompts include standing instructions to ignore commands found inside those tags.
-- Contextur never calls an LLM API. Your AI IDE provides the reasoning; Contextur provides the structured context.
-- Data stays local to your machine and repository.
-
-## Commands
+CLI equivalents (for scripting/manual usage):
 
 ```bash
 contextur init [--force] [--yes]
-contextur review [--base <ref>] [--focus <text>] [--paths <prefixes>] [--dry-run]
+contextur review [--base <ref>] [--focus <text>] [--paths <filters>] [--reviewers <ids>] [--no-interactive] [--dry-run]
 ```
 
-Notes:
+Common `contextur review` flags:
 
-- `--paths` scopes files by comma-separated path prefixes.
-- `--dry-run` prints routing decisions and bundle stats without reviewer prompts.
-- `max_file_bytes` is configurable in `.contextur/config.yaml`; large-diff bundle heuristics (preload budgets and thresholds) currently use internal defaults.
+- `--base <ref>`: compare against a specific base branch
+- `--no-interactive`: deterministic mode for CI/scripts
+- `--paths "src/**,docs/**"`: limit review scope
+- `--reviewers "correctness,security,performance"`: force reviewer selection
+- `--focus "auth and permission regressions"`: set explicit review intent
 
-## Design
+## Cursor / Claude / Codex
 
-See [docs/reference/](docs/reference/) for the original research report and the Flutter reference workflow that the base templates were generalized from.
+Contextur is designed to work across major agentic development apps.
+
+- Start with `contextur-init` in the repository.
+- Use `contextur-review` as your default review entry point.
+- Use `contextur-update` whenever your architecture or review expectations change.
+
+Exact invocation UI differs by tool, but the workflow remains the same.
+
+## Security Model
+
+- Contextur wraps user-sourced payloads (diffs, file content, commit metadata) with safety boundaries so prompts treat them as data, not instructions.
+- Contextur does not call an LLM API directly.
+- Data stays local to your machine and repository; your AI IDE/agent performs reasoning.
+
+## Reference
+
+See [docs/reference/](docs/reference/) for deeper background and source material.
 
 ## License
 
