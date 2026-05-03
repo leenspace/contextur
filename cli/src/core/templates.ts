@@ -12,7 +12,13 @@ export function templatesRoot(): string {
     resolve(here, "..", "..", "..", "templates"), // src/core → repo root
   ];
   for (const c of candidates) {
-    if (existsSync(join(c, "base", "reviewers", "core-logic.md"))) return c;
+    if (
+      existsSync(join(c, "base", "manifest.yaml.tmpl")) &&
+      (existsSync(join(c, "base", "reviewers", "correctness.md")) ||
+        existsSync(join(c, "base", "reviewers", "core-logic.md")))
+    ) {
+      return c;
+    }
   }
   throw new Error(
     `templates/ directory not found. Looked in:\n${candidates.map((c) => `  - ${c}`).join("\n")}`,

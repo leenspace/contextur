@@ -1,10 +1,26 @@
 reviewers:
-  - id: core-logic
-    path: reviewers/core-logic.md
+  - id: correctness
+    path: reviewers/correctness.md
     trigger: "**/*"
     mandatory: true
   - id: security
     path: reviewers/security.md
+    trigger: "**/*"
+    mandatory: true
+  - id: architecture
+    path: reviewers/architecture.md
+    trigger: "**/*"
+    mandatory: true
+  - id: testing
+    path: reviewers/testing.md
+    trigger: "**/*"
+    mandatory: true
+  - id: operability
+    path: reviewers/operability.md
+    trigger: "**/*"
+    mandatory: true
+  - id: performance
+    path: reviewers/performance.md
     trigger:
       - "**/*.ts"
       - "**/*.tsx"
@@ -16,8 +32,66 @@ reviewers:
       - "**/*.java"
       - "**/*.rb"
       - "**/*.php"
-    mandatory: true
-  - id: architecture
-    path: reviewers/architecture.md
-    trigger: "**/*"
-    mandatory: true
+      - "**/*.cs"
+      - "**/*.kt"
+      - "**/*.swift"
+      - "**/*.scala"
+      - "**/*.dart"
+    mandatory: false
+  - id: api-contract
+    path: reviewers/api-contract.md
+    trigger:
+      - "**/*openapi*.yaml"
+      - "**/*openapi*.yml"
+      - "**/*openapi*.json"
+      - "**/*.proto"
+      - "**/*.graphql"
+      - "**/*.gql"
+      - "**/schema/**"
+      - "**/contracts/**"
+    mandatory: false
+  - id: data-migration
+    path: reviewers/data-migration.md
+    trigger:
+      - "**/migrations/**"
+      - "**/migration/**"
+      - "**/alembic/**"
+      - "**/*.sql"
+      - "**/db/**"
+      - "**/database/**"
+      - "**/schema.prisma"
+      - "**/prisma/migrations/**"
+    mandatory: false
+  - id: ci-release
+    path: reviewers/ci-release.md
+    trigger:
+      - ".github/workflows/**"
+      - "**/Dockerfile"
+      - "**/Dockerfile.*"
+      - "**/docker-compose*.yaml"
+      - "**/docker-compose*.yml"
+      - "**/helm/**"
+      - "**/k8s/**"
+      - "**/.circleci/**"
+      - "**/.gitlab-ci.yml"
+      - "**/Jenkinsfile"
+    mandatory: false
+  - id: maintainability
+    path: reviewers/maintainability.md
+    trigger:
+      - "**/*.ts"
+      - "**/*.tsx"
+      - "**/*.js"
+      - "**/*.jsx"
+      - "**/*.py"
+      - "**/*.go"
+      - "**/*.rs"
+      - "**/*.java"
+      - "**/*.rb"
+      - "**/*.php"
+      - "**/*.cs"
+      - "**/*.kt"
+      - "**/*.swift"
+      - "**/*.scala"
+      - "**/*.dart"
+    mandatory: false

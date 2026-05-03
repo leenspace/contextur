@@ -1,3 +1,8 @@
+---
+name: contextur-init
+description: Personalize Contextur reviewers for this repository based on code and existing docs.
+---
+
 Deep-scan this repository with reviewer-focused subagents and personalize the Contextur reviewers so code review catches repo-specific violations, not just generic ones.
 
 Contextur itself does not call an LLM. You are the agentic development tool that runs this protocol. Use your available subagent/task mechanism when the tool supports it. If the tool does not support true subagents, run the same reviewer research tasks sequentially and keep their outputs separated by reviewer id.

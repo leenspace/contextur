@@ -1,4 +1,6 @@
 import type { Command } from "commander";
+import { checkbox, input } from "@inquirer/prompts";
+import micromatch from "micromatch";
 import { buildBundle } from "../core/context-bundle.js";
 import { extractDiff } from "../core/git.js";
 import { excludeIgnored, filterFiles } from "../core/path-routing.js";
@@ -9,6 +11,8 @@ interface ReviewOptions {
   base?: string;
   focus?: string;
   paths?: string;
+  reviewers?: string;
+  interactive: boolean;
   dryRun: boolean;
 }
 
@@ -39,6 +43,8 @@ export function registerReviewCommand(program: Command): void {
     .option("--base <ref>", "Git ref to diff against (overrides config)")
     .option("--focus <text>", "Free-form focus instruction included in the review request")
     .option("--paths <globs>", "Comma-separated path globs to scope the diff")
+    .option("--reviewers <ids>", "Comma-separated reviewer ids to run")
+    .option("--no-interactive", "Disable interactive intake prompts in TTY")
     .option(
       "--dry-run",
       "Print routing decisions and bundle summary only — no reviewer prompts",
@@ -57,7 +63,17 @@ export function registerReviewCommand(program: Command): void {
         );
       }
 
-      const baseRef = opts.base ?? project?.config.base_branch ?? "main";
+      const interactive =
+        opts.interactive && !opts.dryRun && process.stdin.isTTY && process.stdout.isTTY;
+      const defaultBaseRef = project?.config.base_branch ?? "main";
+      const baseRef = opts.base
+        ? opts.base
+        : interactive
+          ? (await input({
+              message: "Base branch for this review",
+              default: defaultBaseRef,
+            })).trim() || defaultBaseRef
+          : defaultBaseRef;
       const ignored = project?.config.ignored_paths ?? FALLBACK_IGNORED;
       const highRisk = project?.config.high_risk_patterns ?? FALLBACK_HIGH_RISK;
       const maxFileBytes = project?.config.max_file_bytes ?? 200_000;
@@ -69,11 +85,27 @@ export function registerReviewCommand(program: Command): void {
       }
 
       const kept = excludeIgnored(diff.changedFiles, ignored);
-      const scopedFiles = opts.paths
-        ? kept.filter((f) =>
-            opts.paths!.split(",").some((p) => f.startsWith(p.trim())),
-          )
-        : kept;
+      const pathFilters = opts.paths
+        ? parseCsv(opts.paths)
+        : interactive
+          ? parseCsv(
+              await input({
+                message:
+                  "Optional file scope (comma-separated globs or path prefixes, leave empty for all)",
+                default: "",
+              }),
+            )
+          : [];
+      const scopedFilesInitial = scopeFilesByPaths(kept, pathFilters);
+      const scopedFiles =
+        interactive && !opts.paths && scopedFilesInitial.length > 0
+          ? await pickFilesInteractively(scopedFilesInitial)
+          : scopedFilesInitial;
+
+      if (scopedFiles.length === 0) {
+        process.stdout.write("No files remain after applying ignore/scope filters.\n");
+        return;
+      }
 
       const scopedDiff = { ...diff, changedFiles: scopedFiles };
       const bundle = await buildBundle(scopedDiff, {
@@ -82,10 +114,27 @@ export function registerReviewCommand(program: Command): void {
         highRiskPatterns: highRisk,
       });
 
-      const triggeredReviewers = project ? pickReviewers(project, scopedFiles) : null;
+      const reviewerFilter = parseCsv(opts.reviewers);
+      const triggeredReviewers = project
+        ? await resolveReviewers({
+            project,
+            files: scopedFiles,
+            reviewerFilter,
+            interactive,
+          })
+        : null;
+      const focus = opts.focus
+        ? opts.focus
+        : interactive
+          ? (await input({
+              message: "Optional review focus (leave empty for general review)",
+              default: "",
+            })).trim() || undefined
+          : undefined;
+
       const reviewerNames = triggeredReviewers
         ? triggeredReviewers.map((r) => r.entry.id).join(", ")
-        : "core-logic, security, architecture (built-in defaults)";
+        : "correctness, security, architecture, testing, operability (built-in defaults)";
 
       if (opts.dryRun) {
         process.stdout.write(
@@ -94,6 +143,7 @@ export function registerReviewCommand(program: Command): void {
             `Project root: ${project?.root ?? "(none — no .contextur/)"}\n` +
             `Reviewers triggered: ${reviewerNames}\n` +
             `Changed files (${diff.changedFiles.length}): ${diff.changedFiles.join(", ")}\n` +
+            `Path filters: ${pathFilters.length > 0 ? pathFilters.join(", ") : "(none)"}\n` +
             `After ignore+scope (${scopedFiles.length}): ${scopedFiles.join(", ")}\n` +
             `Large diff: ${bundle.large}\n` +
             `Preloaded: ${bundle.preloaded.length} files (${bundle.totalChars} chars)\n` +
@@ -109,12 +159,15 @@ export function registerReviewCommand(program: Command): void {
         baseRef,
         headSha: diff.headSha,
         changedFiles: scopedFiles,
+        totalChangedFiles: kept.length,
+        pathFilters,
         bundle,
-        focus: opts.focus,
+        focus,
       });
 
       process.stdout.write(doc + "\n");
     });
+
 }
 
 interface ReviewRequestOpts {
@@ -124,6 +177,8 @@ interface ReviewRequestOpts {
   baseRef: string;
   headSha: string;
   changedFiles: string[];
+  totalChangedFiles: number;
+  pathFilters: string[];
   bundle: import("../core/context-bundle.js").ContextBundle;
   focus?: string | undefined;
 }
@@ -134,13 +189,26 @@ export function buildReviewRequest(opts: ReviewRequestOpts): string {
 
   parts.push(`# Contextur Review Request — ${date}`);
   parts.push("");
-  parts.push(`**Base**: ${opts.baseRef}..HEAD (${opts.headSha})`);
-  parts.push(`**Changed files**: ${opts.changedFiles.length}`);
-  parts.push(`**Triggered reviewers**: ${opts.reviewerNames}`);
+  parts.push("## Review configuration");
+  parts.push("");
+  parts.push(`- 🧭 **Base**: ${opts.baseRef}..HEAD (${opts.headSha})`);
+  parts.push(`- 📄 **Selected files**: ${opts.changedFiles.length} / ${opts.totalChangedFiles}`);
+  parts.push(`- 🧑‍⚖️ **Selected reviewers**: ${opts.reviewerNames}`);
+  if (opts.pathFilters.length > 0) {
+    parts.push(`- 🔎 **Path filters**: ${opts.pathFilters.join(", ")}`);
+  }
   if (opts.focus) {
-    parts.push(`**Focus**: ${opts.focus}`);
+    parts.push(`- 🎯 **Focus**: ${opts.focus}`);
   }
   parts.push("");
+  if (opts.changedFiles.length < opts.totalChangedFiles && opts.changedFiles.length <= 30) {
+    parts.push("### Selected files");
+    parts.push("");
+    for (const file of opts.changedFiles) {
+      parts.push(`- ${markdownFileLink(file)}`);
+    }
+    parts.push("");
+  }
   parts.push("---");
   parts.push("");
   parts.push("## How to use this document");
@@ -208,9 +276,96 @@ export function buildReviewRequest(opts: ReviewRequestOpts): string {
   return parts.join("\n");
 }
 
+
 function pickReviewers(project: LoadedProject, scopedFiles: string[]): LoadedReviewer[] {
   return project.reviewers.filter((r) => {
     if (r.entry.mandatory) return true;
     return filterFiles(scopedFiles, r.entry.trigger).length > 0;
   });
+}
+
+export function parseCsv(raw?: string): string[] {
+  if (!raw) return [];
+  return raw
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
+export function scopeFilesByPaths(files: string[], filters: string[]): string[] {
+  if (filters.length === 0) return files;
+  return files.filter((file) => filters.some((filter) => matchesPathFilter(file, filter)));
+}
+
+export function matchesPathFilter(file: string, filter: string): boolean {
+  const normalized = filter.replace(/^[./]+/, "").trim();
+  if (!normalized) return false;
+  if (hasGlobMagic(normalized)) {
+    return micromatch.isMatch(file, normalized, { dot: true });
+  }
+  return file === normalized || file.startsWith(`${normalized}/`);
+}
+
+function hasGlobMagic(value: string): boolean {
+  return /[*?[\]{}()!+@]/.test(value);
+}
+
+function markdownFileLink(path: string): string {
+  const label = path.replace(/`/g, "\\`");
+  const target = encodeURI(path).replace(/>/g, "%3E");
+  return `[\`${label}\`](<${target}>)`;
+}
+
+interface ResolveReviewersOpts {
+  project: LoadedProject;
+  files: string[];
+  reviewerFilter: string[];
+  interactive: boolean;
+}
+
+async function resolveReviewers(opts: ResolveReviewersOpts): Promise<LoadedReviewer[]> {
+  const all = opts.project.reviewers;
+  const reviewerIds = new Set(all.map((r) => r.entry.id));
+  const mandatoryIds = new Set(all.filter((r) => r.entry.mandatory).map((r) => r.entry.id));
+  const autoSelected = pickReviewers(opts.project, opts.files);
+  const autoIds = new Set(autoSelected.map((r) => r.entry.id));
+
+  if (opts.reviewerFilter.length > 0) {
+    const requested = new Set<string>([...opts.reviewerFilter, ...mandatoryIds]);
+    const unknown = [...requested].filter((id) => !reviewerIds.has(id));
+    if (unknown.length > 0) {
+      throw new Error(`Unknown reviewer ids: ${unknown.join(", ")}`);
+    }
+    return all.filter((reviewer) => requested.has(reviewer.entry.id));
+  }
+
+  if (!opts.interactive) return autoSelected;
+
+  const selectedIds = await checkbox<string>({
+    message: "Select reviewers to run for this review",
+    choices: all.map((reviewer) => {
+      const id = reviewer.entry.id;
+      return {
+        name: reviewer.entry.mandatory ? `${id} (mandatory)` : id,
+        value: id,
+        checked: autoIds.has(id),
+        disabled: reviewer.entry.mandatory ? "required" : false,
+      };
+    }),
+    validate: (values) => (values.length > 0 ? true : "Select at least one reviewer."),
+  });
+  const selectedSet = new Set(selectedIds);
+  return all.filter((reviewer) => selectedSet.has(reviewer.entry.id));
+}
+
+async function pickFilesInteractively(files: string[]): Promise<string[]> {
+  if (files.length > 80) {
+    return files;
+  }
+  const selected = await checkbox<string>({
+    message: "Select files to include in this review",
+    choices: files.map((path) => ({ name: path, value: path, checked: true })),
+    validate: (values) => (values.length > 0 ? true : "Select at least one file."),
+  });
+  return selected;
 }
