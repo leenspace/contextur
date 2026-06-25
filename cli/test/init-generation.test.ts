@@ -32,7 +32,7 @@ function makeSignals(overrides?: Partial<RepoSignals>): RepoSignals {
 }
 
 async function readIntegrationTemplate(name: string): Promise<string> {
-  return readFile(new URL(`../../templates/base/integrations/${name}`, import.meta.url), "utf8");
+  return readFile(new URL(`../templates/base/integrations/${name}`, import.meta.url), "utf8");
 }
 
 describe("init generation helpers", () => {
