@@ -2,10 +2,10 @@
 
 Contextur helps you run consistent, high-signal AI code reviews in agentic development tools like Cursor, Claude Code, and Codex.
 
-The workflow is two-layered:
+The workflow has two distinct layers:
 
-1. **Shell CLI** (`contextur`) — scans your repo, generates reviewer prompts, builds context bundles, and runs reviews.
-2. **AI tool commands** (`/project:contextur-init`, `$contextur-review`, etc.) — generated into your repo by `contextur init` so your AI tool can invoke the CLI on your behalf.
+1. **Shell CLI** (`contextur`) — scans your repo and generates reviewer prompts and AI tool integrations. No AI involved.
+2. **Agent tool commands** (`/project:contextur-init`, `/project:contextur-review`, etc.) — generated into your repo by the CLI, and invoked inside your AI tool to run the actual reviews.
 
 ## Install
 
@@ -24,96 +24,62 @@ npm link -w contextur
 node $(pwd)/cli/dist/index.js --help
 ```
 
-## Recommended Workflow
+## Workflow
 
-Use this sequence for reliable reviews:
+### 1) Install and scaffold (CLI only, no AI)
 
-### 1) Initialize once (required, two-step)
-
-In the target repository, run the shell CLI to generate reviewer prompts and AI tool integrations:
+In the target repository, run the shell CLI to generate reviewer prompts and agent tool integrations:
 
 ```bash
 # In the target project repository
 contextur init
 ```
 
-Then, inside your AI tool, run the generated agent command to personalize the reviewers for your codebase:
-
-- **Claude Code:** `/project:contextur-init`
-- **Cursor:** ask "initialize contextur for this repo"
-- **Codex / shared skills:** `$contextur-init`
-
-What this does:
+This is a pure CLI operation — no AI is called. It:
 
 - Sets up `.contextur/` with editable reviewer prompts and config
 - Generates `AGENTS.md` at the repo root for agent context
-- Installs AI tool integrations (Claude Code slash commands, Cursor rules, shared skills)
-- Establishes your baseline review workflow
+- Installs agent tool integrations (Claude Code slash commands, Cursor rules, shared skills)
 
-### 2) Review your current change
+### 2) Generate your reviewers (from your agent tool)
 
-Run the interactive intake to configure and launch a review:
+Once `contextur init` has run, open your AI tool in the same repo and run the init command. This is where AI is first involved — the agent reads your codebase and personalizes the reviewer prompts.
 
-```bash
-contextur review-intake
-```
+| Tool | Command |
+|---|---|
+| Claude Code | `/project:contextur-init` |
+| Cursor | ask "initialize contextur for this repo" |
+| Codex / skills | `$contextur-init` |
 
-This guides you through selecting files, reviewers, and focus, then prints the exact `contextur review` command to run — or pass it directly to your AI tool:
+### 3) Review your changes (from your agent tool)
 
-- **Claude Code:** `/project:contextur-review`
-- **Cursor:** ask "review this PR"
-- **Codex / shared skills:** `$contextur-review`
+Make your code changes, then trigger a review from your agent tool:
 
-### 3) Update when architecture or standards evolve
+| Tool | Command |
+|---|---|
+| Claude Code | `/project:contextur-review` |
+| Cursor | ask "review this PR" |
+| Codex / skills | `$contextur-review` |
 
-If your system architecture changes, or you want to improve reviewer behavior/prompts, run:
+Reviews are run by your agent tool, not the CLI.
+
+### 4) Update when architecture or standards evolve
+
+If your system architecture changes or you want to refresh reviewer behavior, re-run the CLI scaffold step and then re-run the agent init:
 
 ```bash
 contextur init --force
 ```
 
-Then re-run the personalize step in your AI tool (`/project:contextur-init`).
-
-## Practical Day-to-Day Flow
-
-```bash
-# In your project repo
-contextur init
-
-# ...make code changes...
-git add .
-git commit -m "your change"
-
-# Run interactive review intake
-contextur review-intake
-
-# Or run a review directly
-contextur review --base main
-```
-
-Inside your AI tool (after `contextur init` has run):
-
-| Tool | Init | Review | Update |
-|---|---|---|---|
-| Claude Code | `/project:contextur-init` | `/project:contextur-review` | `/project:contextur-update` |
-| Cursor | "initialize contextur" | "review this PR" | "update contextur" |
-| Codex / skills | `$contextur-init` | `$contextur-review` | `$contextur-update` |
+Then run the agent init command again (`/project:contextur-init`).
 
 ## Shell CLI Reference
 
+The CLI handles scaffolding only. It does not run reviews.
+
 ```bash
 contextur init [--force] [--yes]
-contextur review [--base <ref>] [--focus <text>] [--paths <filters>] [--reviewers <ids>] [--no-interactive] [--dry-run]
-contextur review-intake [--base <ref>] [--focus <text>] [--paths <filters>] [--reviewers <ids>]
 ```
-
-Common `contextur review` flags:
-
-- `--base <ref>`: compare against a specific base branch
-- `--no-interactive`: deterministic mode for CI/scripts
-- `--paths "src/**,docs/**"`: limit review scope
-- `--reviewers "correctness,security,performance"`: force reviewer selection
-- `--focus "auth and permission regressions"`: set explicit review intent
 
 ## AI Tool Commands
 
@@ -122,14 +88,6 @@ These are **not** shell binaries. They are files generated into your repository 
 - **Claude Code** → `/project:contextur-init`, `/project:contextur-review`, `/project:contextur-update`
 - **Cursor** → invoke by describing the action naturally in chat
 - **Codex / shared skills** → `$contextur-init`, `$contextur-review`, `$contextur-update`
-
-## Cursor / Claude / Codex
-
-Contextur is designed to work across major agentic development apps.
-
-- Run `contextur init` in the repository to generate all AI tool integrations.
-- Use your AI tool's generated commands for the review workflow.
-- Use `contextur init --force` whenever your architecture or review expectations change, then re-run the personalize step.
 
 ## Security Model
 
